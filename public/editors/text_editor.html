@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link href="https://fonts.googleapis.com/css2?family=Forum&amp;family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&amp;display=swap" rel="stylesheet" />
+
+    <style>
+      .gold-text {
+        font-family: "Playfair Display", serif;
+        font-family: "Verdana", serif;
+        font-family: "Georgia ", serif;
+        font-family: "Oxanium", sans-serif;
+        font-family: "Forum", serif;
+        font-size: 6rem;
+        font-weight: bold;
+        /* text-transform: uppercase; */
+        background: linear-gradient(to bottom, #462523 0%, #cb9b51 22%, #f6e27a 45%, #f6f2c0 50%, #f6e27a 55%, #cb9b51 78%, #462523 100%);
+        background: linear-gradient(to bottom, #d5d4d4 0%, #d0bea1 22%, #f6e27a 45%, #f6f2c0 50%, #f6e27a 55%, #ffeed3 78%, #462523 100%);
+        background: url("./test metal 2.jpg"), linear-gradient(to bottom, #462523 0%, #e68b00 22%, #f6e27a 45%, #f4d86c 50%, #f6e27a 55%, #cb9b51 78%, #462523 100%);
+        background-size: auto, auto;
+        background-clip: border-box, border-box;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        position: relative;
+        -webkit-text-stroke: 1px black;
+        -webkit-text-stroke: 1px #ffedde2b;
+        background-blend-mode: overlay;
+        background-size: 200px 300px;
+        background-size: 200px 100px;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .gold-text::after {
+        content: attr(data-text);
+
+        position: absolute;
+
+        top: 0;
+
+        left: 0;
+
+        z-index: -1;
+
+        text-shadow: -1px 0 1px #c6bb9f, 0 1px 1px #c6bb9f, 5px 5px 10px rgba(0, 0, 0, 0.4), -5px -5px 10px rgba(0, 0, 0, 0.4);
+
+        text-shadow: -1px 0 1px #000, 0 1px 1px #000, 5px 5px 10px rgb(0, 0, 0), -5px -5px 10px rgb(0, 0, 0);
+
+        text-shadow: -1px 0 1px #fff6e0, 0 1px 1px #c6bb9f, 5px 5px 10px rgb(0, 0, 0), -5px -5px 10px rgb(0, 0, 0);
+
+        text-shadow: -3px 0 3px #000, 0 3px 3px #000, 5px 5px 10px rgb(0, 0, 0), -5px -5px 10px rgb(0, 0, 0);
+      }
+
+      body {
+        background-color: #001d11;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="gold-text-container">
+      <h1 class="gold-text" data-text="Champion">Champion</h1>
+    </div>
+    <div class="gold-text-container">
+      <h1 class="gold-text" data-text="Save Ctrl + S">Save Ctrl + S</h1>
+    </div>
+    <div class="gold-text-container">
+      <h1 class="gold-text" data-text="SAVE">SAVE</h1>
+    </div>
+    <div class="gold-text-container">
+      <h1 class="gold-text" data-text="Objects">Objects</h1>
+    </div>
+    <div class="gold-text-container">
+      <h1 class="gold-text" data-text="Terrain">Terrain</h1>
+    </div>
+    <div class="gold-text-container">
+      <h1 class="gold-text" data-text="T">T</h1>
+    </div>
+  </body>
+</html>

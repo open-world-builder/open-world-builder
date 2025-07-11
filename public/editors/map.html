@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Skill Maker</title>
+    <style>
+      body,
+      html {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #000;
+      }
+      #app {
+        /* display: flex; */
+        height: 100%;
+      }
+      #renderCanvas {
+        flex: 1;
+        width: 100%;
+        height: 100%;
+        filter: blur(20px);
+        opacity: 0;
+        transition: opacity 0.9s ease-out, filter 0.9s ease-out;
+        background: #000;
+      }
+
+      #renderCanvas.fade-blur {
+        filter: blur(0px);
+        opacity: 1;
+      }
+
+      .controls {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 10px;
+        border-radius: 5px;
+        color: white;
+      }
+
+      .edit-panel {
+        position: absolute;
+        left: 10px;
+        top: 10px;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 10px;
+        border-radius: 5px;
+        color: white;
+        display: none;
+      }
+
+      .edit-panel.visible {
+        display: block;
+      }
+
+      canvas {
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+      }
+    </style>
+    <script src="/lib/vue.global.prod.min.js"></script>
+
+    <script src="/src/GLOBALS.js"></script>
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="renderCanvas"></canvas>
+      <div class="controls">
+        <button @click="toggleMode">{{ isEditMode ? 'View Mode' : 'Edit Mode' }}</button>
+      </div>
+      <div class="edit-panel" :class="{ visible: isEditMode }">
+        <!-- Add your editing controls here -->
+        <h3>Edit Settings</h3>
+        <!-- Example settings -->
+        <div>
+          <label>Setting 1: <input type="number" v-model="settings.setting1" /></label>
+        </div>
+        <div>
+          <label>Setting 2: <input type="text" v-model="settings.setting2" /></label>
+        </div>
+      </div>
+    </div>
+    <!-- <script src="/src/map.js"></script> -->
+  </body>
+  <script>
+    const { createApp } = Vue;
+
+    createApp({
+      data() {
+        return {
+          isEditMode: false,
+          isDragging: false,
+          lastX: 0,
+          lastY: 0,
+          mapX: 0,
+          mapY: 0,
+          tileSize: 256, // standard map tile size
+          zoom: 1,
+          ctx: null,
+          tiles: new Map(), // Store loaded tiles
+          settings: {
+            setting1: 0,
+            setting2: "",
+          },
+        };
+      },
+      mounted() {
+        const canvas = document.getElementById("renderCanvas");
+        this.ctx = canvas.getContext("2d");
+
+        // Set canvas size to window size
+        this.resizeCanvas();
+        window.addEventListener("resize", this.resizeCanvas);
+
+        // Handle mouse events for panning
+        canvas.addEventListener("mousedown", this.startPan);
+        document.addEventListener("mousemove", this.pan);
+        document.addEventListener("mouseup", this.endPan);
+
+        // Start render loop
+        this.render();
+      },
+      methods: {
+        resizeCanvas() {
+          const canvas = document.getElementById("renderCanvas");
+          canvas.width = window.innerWidth;
+          canvas.height = window.innerHeight;
+          canvas.classList.add("fade-blur");
+        },
+        toggleMode() {
+          this.isEditMode = !this.isEditMode;
+        },
+        startPan(e) {
+          if (this.isEditMode) return;
+          this.isDragging = true;
+          this.lastX = e.clientX;
+          this.lastY = e.clientY;
+        },
+        pan(e) {
+          if (!this.isDragging) return;
+          const deltaX = e.clientX - this.lastX;
+          const deltaY = e.clientY - this.lastY;
+
+          this.mapX += deltaX;
+          this.mapY += deltaY;
+
+          this.lastX = e.clientX;
+          this.lastY = e.clientY;
+        },
+        endPan() {
+          this.isDragging = false;
+        },
+        loadTile(x, y) {
+          const key = `${x},${y}`;
+          if (this.tiles.has(key)) return this.tiles.get(key);
+
+          const img = new Image();
+          img.src = `/map-tiles/${this.zoom}/${x}/${y}.png`; // Adjust path to your tile server
+
+          const tilePromise = new Promise((resolve) => {
+            img.onload = () => resolve(img);
+            img.onerror = () => {
+              // Create a fallback tile for missing images
+              const tempCanvas = document.createElement("canvas");
+              tempCanvas.width = this.tileSize;
+              tempCanvas.height = this.tileSize;
+              const tempCtx = tempCanvas.getContext("2d");
+              tempCtx.fillStyle = "#1a1a1a";
+              tempCtx.fillRect(0, 0, this.tileSize, this.tileSize);
+              tempCtx.strokeStyle = "#333";
+              tempCtx.strokeRect(0, 0, this.tileSize, this.tileSize);
+              tempCtx.fillStyle = "#333";
+              tempCtx.font = "20px Arial";
+              tempCtx.fillText(`${x},${y}`, 20, 30);
+              resolve(tempCanvas);
+            };
+          });
+
+          this.tiles.set(key, tilePromise);
+          return tilePromise;
+        },
+        async render() {
+          const canvas = document.getElementById("renderCanvas");
+          this.ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+          // Calculate visible tile range
+          const startX = Math.floor(-this.mapX / this.tileSize);
+          const startY = Math.floor(-this.mapY / this.tileSize);
+          const endX = startX + Math.ceil(canvas.width / this.tileSize) + 1;
+          const endY = startY + Math.ceil(canvas.height / this.tileSize) + 1;
+
+          // Draw visible tiles
+          for (let x = startX; x < endX; x++) {
+            for (let y = startY; y < endY; y++) {
+              const tile = await this.loadTile(x, y);
+              this.ctx.drawImage(tile, x * this.tileSize + this.mapX, y * this.tileSize + this.mapY, this.tileSize, this.tileSize);
+            }
+          }
+
+          requestAnimationFrame(this.render);
+        },
+      },
+    }).mount("#app");
+  </script>
+
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-GBBGRRLHZC"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+      dataLayer.push(arguments);
+    }
+    gtag("js", new Date());
+
+    gtag("config", "G-GBBGRRLHZC");
+  </script>
+</html>

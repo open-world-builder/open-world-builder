@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Babylon.js Fireball Demo</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+        #controls {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
+    <script src="/lib/babylon.js"></script>
+    <script src="/lib/babylonjs.loaders.min.js"></script>
+</head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <div id="controls">
+        <div style="margin-bottom: 10px;">
+            <button onclick="loadPreset('fire')">Fire Preset</button>
+            <button onclick="loadPreset('arcane')">Arcane Preset</button>
+            <button onclick="loadPreset('fell')">Fell Preset</button>
+        </div>
+        <button onclick="addFireball()">Add Fireball</button>
+        <button onclick="removeFireball()">Remove Fireball</button>
+        <button onclick="exportFireballCode()">Export Code</button>
+        <button onclick="saveParams()">Save Params</button>
+        <button onclick="loadParams()">Load Params</button>
+        <button onclick="savePresetFormat()">Save Preset Format</button>
+        <div>Fireballs: <span id="count">0</span></div>
+        <div>FPS: <span id="fps">60</span></div>
+    </div>
+
+    
+    <script src="/lib/babylon.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lil-gui@0.17.0/dist/lil-gui.umd.min.js"></script>
+    <script>
+        async function start(){
+
+         
+        const canvas = document.getElementById("renderCanvas");
+        const engine = new BABYLON.Engine(canvas, true);
+        const scene = new BABYLON.Scene(engine);
+        const fireballs = [];
+
+        // Enable Inspector
+        scene.debugLayer.show();
+
+        // Load the tree model
+        BABYLON.SceneLoader.ImportMesh("", "/assets/env/exterior/terrain/", "ground and tree.glb", scene, function(meshes) {
+            // Optional: Adjust tree position/scale if needed
+            meshes[1].position.x = -10;
+            meshes[1].position.z = 8;
+            meshes[3].position.x = 20;
+            meshes[3].position.y = 8;
+            meshes[3].position.z = 25;
+            // meshes[0].position.z = 15;
+            meshes[3].rotation.y    = Math.PI / 2; // 90 degrees in radians
+            meshes[3].scaling = new BABYLON.Vector3(2, 2, 2);
+            // Hide the third mesh (index 2)
+            meshes[2].setEnabled(false);
+
+        });
+        
+
+        // Create camera
+        const camera = new BABYLON.ArcRotateCamera("camera", 0, Math.PI / 3, 20, BABYLON.Vector3.Zero(), scene);
+        camera.target = new BABYLON.Vector3(0.39, 1.39, 0.74);
+      
+        camera.attachControl(canvas, true);
+        camera.alpha = 4.5540;
+        camera.beta = 1.0489;
+        camera.radius = 36.9067;
+
+
+         async function loadModels(scene, urls) {
+    const loadModelPromises = urls.map(url => loadModel(scene, url)); // Create an array of promises
+    const modelsArray = await Promise.all(loadModelPromises); // Await all promises in parallel
+    const modelsDict = modelsArray.reduce((acc, result, index) => {
+        let selector = urls[index].split("/").pop().replace('.glb', '');
+        acc[selector] = result.meshes[0]; // Store the first mesh in the dictionary with the URL as key
+        return acc;
+    }, {});
+    return modelsDict; // Return the dictionary containing all the models
+}
+
+async function loadModel(scene, url) {
+    const result = await BABYLON.SceneLoader.ImportMeshAsync("", "/assets/", url, scene);
+    console.log(`Loaded ${url}`);
+    return result;
+}
+        const modelUrls = ["util/atmosphere/lightrays/lightrays.glb"];
+        const [ models] = await Promise.all([
+        loadModels(scene, modelUrls)
+    ]);
+    addLightrays(models['lightrays'], scene, engine);
+
+        // Add default post-processing setup
+        const pipeline = new BABYLON.DefaultRenderingPipeline(
+            "defaultPipeline", // The name of the pipeline
+            true, // Do you want the pipeline to use HDR texture?
+            scene, // The scene instance
+            [camera] // The list of cameras to be attached to
+        );
+
+        // Configure default pipeline
+        pipeline.imageProcessing.contrast = 1.1;
+        pipeline.imageProcessing.exposure = 1.0;
+        pipeline.bloomEnabled = true;
+        pipeline.bloomThreshold = 0.1;
+        pipeline.bloomWeight = 0.8;
+        pipeline.bloomKernel = 64;
+        pipeline.bloomScale = 0.7500;
+
+        // pipeline.chromaticAberrationEnabled = true;
+        // pipeline.chromaticAberration.aberrationAmount = 1;
+        // pipeline.chromaticAberration.radialIntensity = 1;
+
+        pipeline.sharpenEnabled = true;
+        pipeline.sharpen.edgeAmount = 0.3;
+
+        // pipeline.grainEnabled = true;
+        // pipeline.grain.intensity = 10;
+        // pipeline.grain.animated = true;
+
+        // camera.target = new BABYLON.Vector3(-1.816, 1.272, 0.399);
+
+        // Add basic light
+        const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+        let trailMaterial= null; 
+
+        // Add mesh options to parameters
+        const params = {
+            primary: {
+                r: 1.0,
+                g: 0.3,
+                b: 0.0
+            },
+            secondary: {
+                r: 1.0,
+                g: 0.7,
+                b: 0.2
+            },
+            noise: {
+                scale1: 5.0,
+                scale2: 8.0,
+                speed1: 0.5,
+                speed2: 0.7
+            },
+            glow: {
+                intensity: 1.0,
+                power: 1.0
+            },
+            trail: {
+                uOffset: 0.3,
+                scrollSpeed: 0.005,
+                uScale: 0.3,
+                vScale: 0.5,
+                textureOption: 'spelltrail',
+                uAng: 0
+            },
+            secondaryTrail: {
+                enabled: true,
+                uOffset: 0.3,
+                scrollSpeed: 0.005,
+                uScale: 0.3,
+                vScale: 0.9,
+                textureOption: 'spell',
+                uAng: 0
+            },
+            core: {
+                meshType: 'sphere',
+                diameter: 1.0,
+                segments: 32
+            }
+        };
+
+        // Add texture mapping object
+        const TRAIL_TEXTURES = {
+            'spelltrail': {
+                path: '/assets/textures/effects/spelltrail.png',
+                defaultUScale: 0.3,
+                defaultVScale: 0.5
+            },
+            'spell': {
+                path: '/assets/textures/effects/spell.png',
+                defaultUScale: 0.35,
+                defaultVScale: 0.9
+            }
+        };
+
+        // Add mesh configuration object
+        const CORE_MESHES = {
+            'sphere': {
+                create: (scene) => BABYLON.MeshBuilder.CreateSphere("fireballCore", {
+                    diameter: params.core.diameter,
+                    segments: params.core.segments
+                }, scene),
+                params: ['diameter', 'segments']
+            },
+            'box': {
+                create: (scene) => BABYLON.MeshBuilder.CreateBox("fireballCore", {
+                    size: params.core.diameter
+                }, scene),
+                params: ['diameter']
+            },
+            'torus': {
+                create: (scene) => BABYLON.MeshBuilder.CreateTorus("fireballCore", {
+                    diameter: params.core.diameter,
+                    thickness: params.core.diameter * 0.3,
+                    tessellation: params.core.segments
+                }, scene),
+                params: ['diameter', 'segments']
+            },
+            'icosphere': {
+                create: (scene) => BABYLON.MeshBuilder.CreateIcoSphere("fireballCore", {
+                    radius: params.core.diameter / 2,
+                    subdivisions: Math.min(params.core.segments / 8, 5)
+                }, scene),
+                params: ['diameter', 'segments']
+            }
+        };
+
+        // Update the GUI setup
+        const setupGUI = () => {
+            const gui = new lil.GUI();
+            
+            const primaryFolder = gui.addFolder('Primary Color');
+            primaryFolder.add(params.primary, 'r', 0, 1).name('Red').onChange(updateMaterials);
+            primaryFolder.add(params.primary, 'g', 0, 1).name('Green').onChange(updateMaterials);
+            primaryFolder.add(params.primary, 'b', 0, 1).name('Blue').onChange(updateMaterials);
+            
+            const secondaryFolder = gui.addFolder('Secondary Color');
+            secondaryFolder.add(params.secondary, 'r', 0, 1).name('Red').onChange(updateMaterials);
+            secondaryFolder.add(params.secondary, 'g', 0, 1).name('Green').onChange(updateMaterials);
+            secondaryFolder.add(params.secondary, 'b', 0, 1).name('Blue').onChange(updateMaterials);
+            
+            const noiseFolder = gui.addFolder('Noise');
+            noiseFolder.add(params.noise, 'scale1', 1, 20).name('Pattern 1 Scale').onChange(updateMaterials);
+            noiseFolder.add(params.noise, 'scale2', 1, 20).name('Pattern 2 Scale').onChange(updateMaterials);
+            noiseFolder.add(params.noise, 'speed1', 0, 2).name('Pattern 1 Speed').onChange(updateMaterials);
+            noiseFolder.add(params.noise, 'speed2', 0, 2).name('Pattern 2 Speed').onChange(updateMaterials);
+            
+            const glowFolder = gui.addFolder('Glow');
+            glowFolder.add(params.glow, 'intensity', 0, 2).name('Intensity').onChange(updateMaterials);
+            glowFolder.add(params.glow, 'power', 1, 5).name('Power').onChange(updateMaterials);
+            
+            const trailFolder = gui.addFolder('Trail');
+            trailFolder.add(params.trail, 'textureOption', Object.keys(TRAIL_TEXTURES))
+                .name('Texture')
+                .onChange(() => {
+                    fireballs.forEach(fireball => {
+                        if (fireball.trail && fireball.trail.material) {
+                            // Get the selected texture configuration
+                            const textureConfig = TRAIL_TEXTURES[params.trail.textureOption];
+                            
+                            // Create and configure new texture
+                            const newTexture = new BABYLON.Texture(textureConfig.path, scene);
+                            newTexture.wrapU = BABYLON.Texture.WRAP_ADDRESSMODE;
+                            newTexture.wrapV = BABYLON.Texture.WRAP_ADDRESSMODE;
+                            newTexture.uScale = params.trail.uScale;
+                            newTexture.uOffset = params.trail.uOffset;
+                            newTexture.vScale = params.trail.vScale;
+                            newTexture.uAng = params.trail.uAng;
+                            
+                            // Update material textures
+                            fireball.trail.material.diffuseTexture = newTexture;
+                            fireball.trail.material.opacityTexture = newTexture;
+                        }
+                    });
+                });
+            trailFolder.add(params.trail, 'uOffset', 0, 1).name('U Offset').onChange(() => {
+                fireballs.forEach(fireball => {
+                    if (fireball.trail && fireball.trail.material && fireball.trail.material.diffuseTexture) {
+                        fireball.trail.material.diffuseTexture.uOffset = params.trail.uOffset;
+                    }
+                });
+            });
+            trailFolder.add(params.trail, 'uScale', 0.1, 2).name('U Scale').onChange(() => {
+                fireballs.forEach(fireball => {
+                    if (fireball.trail && fireball.trail.material && fireball.trail.material.diffuseTexture) {
+                        fireball.trail.material.diffuseTexture.uScale = params.trail.uScale;
+                    }
+                });
+            });
+            trailFolder.add(params.trail, 'vScale', 0.1, 2).name('V Scale').onChange(() => {
+                fireballs.forEach(fireball => {
+                    if (fireball.trail && fireball.trail.material && fireball.trail.material.diffuseTexture) {
+                        fireball.trail.material.diffuseTexture.vScale = params.trail.vScale;
+                    }
+                });
+            });
+            trailFolder.add(params.trail, 'scrollSpeed', 0, 0.02).name('Scroll Speed');
+            trailFolder.add(params.trail, 'uAng', 0, Math.PI * 2)
+                .name('Rotation')
+                .onChange(() => {
+                    fireballs.forEach(fireball => {
+                        if (fireball.trail && fireball.trail.material && fireball.trail.material.diffuseTexture) {
+                            fireball.trail.material.diffuseTexture.uAng = params.trail.uAng;
+                        }
+                    });
+                });
+
+            const secondaryTrailFolder = gui.addFolder('Secondary Trail');
+            secondaryTrailFolder.add(params.secondaryTrail, 'enabled')
+                .name('Enable')
+                .onChange(() => {
+                    fireballs.forEach(fireball => {
+                        if (fireball.secondaryTrail) {
+                            fireball.secondaryTrail.isVisible = params.secondaryTrail.enabled;
+                        }
+                    });
+                });
+            secondaryTrailFolder.add(params.secondaryTrail, 'textureOption', Object.keys(TRAIL_TEXTURES))
+                .name('Texture')
+                .onChange(() => {
+                    fireballs.forEach(fireball => {
+                        if (fireball.secondaryTrail && fireball.secondaryTrail.material) {
+                            const textureConfig = TRAIL_TEXTURES[params.secondaryTrail.textureOption];
+                            const newTexture = new BABYLON.Texture(textureConfig.path, scene);
+                            newTexture.wrapU = BABYLON.Texture.WRAP_ADDRESSMODE;
+                            newTexture.wrapV = BABYLON.Texture.WRAP_ADDRESSMODE;
+                            newTexture.uScale = params.secondaryTrail.uScale;
+                            newTexture.uOffset = params.secondaryTrail.uOffset;
+                            newTexture.vScale = params.secondaryTrail.vScale;
+                            newTexture.uAng = params.secondaryTrail.uAng;
+                            
+                            fireball.secondaryTrail.material.diffuseTexture = newTexture;
+                            fireball.secondaryTrail.material.opacityTexture = newTexture;
+                        }
+                    });
+                });
+            secondaryTrailFolder.add(params.secondaryTrail, 'uOffset', 0, 1).name('U Offset').onChange(() => {
+                fireballs.forEach(fireball => {
+                    if (fireball.secondaryTrail && fireball.secondaryTrail.material && fireball.secondaryTrail.material.diffuseTexture) {
+                        fireball.secondaryTrail.material.diffuseTexture.uOffset = params.secondaryTrail.uOffset;
+                    }
+                });
+            });
+            secondaryTrailFolder.add(params.secondaryTrail, 'uScale', 0.1, 2).name('U Scale').onChange(() => {
+                fireballs.forEach(fireball => {
+                    if (fireball.secondaryTrail && fireball.secondaryTrail.material && fireball.secondaryTrail.material.diffuseTexture) {
+                        fireball.secondaryTrail.material.diffuseTexture.uScale = params.secondaryTrail.uScale;
+                    }
+                });
+            });
+            secondaryTrailFolder.add(params.secondaryTrail, 'vScale', 0.1, 2).name('V Scale').onChange(() => {
+                fireballs.forEach(fireball => {
+                    if (fireball.secondaryTrail && fireball.secondaryTrail.material && fireball.secondaryTrail.material.diffuseTexture) {
+                        fireball.secondaryTrail.material.diffuseTexture.vScale = params.secondaryTrail.vScale;
+                    }
+                });
+            });
+            secondaryTrailFolder.add(params.secondaryTrail, 'scrollSpeed', 0, 0.02).name('Scroll Speed');
+            secondaryTrailFolder.add(params.secondaryTrail, 'uAng', 0, Math.PI * 2)
+                .name('Rotation')
+                .onChange(() => {
+                    fireballs.forEach(fireball => {
+                        if (fireball.secondaryTrail && fireball.secondaryTrail.material && fireball.secondaryTrail.material.diffuseTexture) {
+                            fireball.secondaryTrail.material.diffuseTexture.uAng = params.secondaryTrail.uAng;
+                        }
+                    });
+                });
+
+            const coreFolder = gui.addFolder('Core Mesh');
+            coreFolder.add(params.core, 'meshType', Object.keys(CORE_MESHES))
+                .name('Mesh Type')
+                .onChange(() => {
+                    fireballs.forEach(fireball => {
+                        // Store old position and rotation
+                        const oldPos = fireball.core.position.clone();
+                        const oldRot = fireball.core.rotation.clone();
+                        const oldParent = fireball.core.parent;
+                        
+                        // Remove old mesh
+                        fireball.core.dispose();
+                        
+                        // Create new mesh
+                        const newMesh = CORE_MESHES[params.core.meshType].create(scene);
+                        newMesh.position = oldPos;
+                        newMesh.rotation = oldRot;
+                        newMesh.parent = oldParent;
+                        newMesh.material = fireball.core.material;
+                        
+                        // Update fireball reference
+                        fireball.core = newMesh;
+                        
+                        // Update trail to follow new mesh
+                        if (fireball.trail) {
+                            fireball.trail.dispose();
+                            fireball.trail = new BABYLON.TrailMesh("trail", newMesh, scene, 0.4, 200, true);
+                            fireball.trail.material = trailMaterial;
+                        }
+                    });
+                });
+            
+            coreFolder.add(params.core, 'diameter', 0.1, 3)
+                .name('Size')
+                .onChange(() => {
+                    fireballs.forEach(fireball => {
+                        // Recreate mesh with new size
+                        const meshType = params.core.meshType;
+                        const oldMesh = fireball.core;
+                        const newMesh = CORE_MESHES[meshType].create(scene);
+                        
+                        // Transfer properties
+                        newMesh.position = oldMesh.position.clone();
+                        newMesh.rotation = oldMesh.rotation.clone();
+                        newMesh.parent = oldMesh.parent;
+                        newMesh.material = oldMesh.material;
+                        
+                        // Update references
+                        fireball.core = newMesh;
+                        oldMesh.dispose();
+                        
+                        // Update trail
+                        if (fireball.trail) {
+                            fireball.trail.dispose();
+                            fireball.trail = new BABYLON.TrailMesh("trail", newMesh, scene, 0.4, 200, true);
+                            fireball.trail.material = trailMaterial;
+                        }
+                    });
+                });
+            
+            coreFolder.add(params.core, 'segments', 4, 64, 1)
+                .name('Detail')
+                .onChange(() => {
+                    if (CORE_MESHES[params.core.meshType].params.includes('segments')) {
+                        fireballs.forEach(fireball => {
+                            // Recreate mesh with new segments
+                            const meshType = params.core.meshType;
+                            const oldMesh = fireball.core;
+                            const newMesh = CORE_MESHES[meshType].create(scene);
+                            
+                            // Transfer properties
+                            newMesh.position = oldMesh.position.clone();
+                            newMesh.rotation = oldMesh.rotation.clone();
+                            newMesh.parent = oldMesh.parent;
+                            newMesh.material = oldMesh.material;
+                            
+                            // Update references
+                            fireball.core = newMesh;
+                            oldMesh.dispose();
+                            
+                            // Update trail
+                            if (fireball.trail) {
+                                fireball.trail.dispose();
+                                fireball.trail = new BABYLON.TrailMesh("trail", newMesh, scene, 0.4, 200, true);
+                                fireball.trail.material = trailMaterial;
+                            }
+                        });
+                    }
+                });
+        };
+
+        // Update the materials function
+        const updateMaterials = () => {
+            fireballs.forEach(fireball => {
+                // Update core shader material
+                const material = fireball.core.material;
+                if (material.setVector3) {
+                    material.setVector3("primaryColor", new BABYLON.Vector3(params.primary.r, params.primary.g, params.primary.b));
+                    material.setVector3("secondaryColor", new BABYLON.Vector3(params.secondary.r, params.secondary.g, params.secondary.b));
+                    material.setVector4("noiseParams", new BABYLON.Vector4(params.noise.scale1, params.noise.scale2, params.noise.speed1, params.noise.speed2));
+                    material.setVector2("glowParams", new BABYLON.Vector2(params.glow.intensity, params.glow.power));
+                }
+                
+                // Update trail material
+                if (fireball.trail && fireball.trail.material) {
+                    const trailMat = fireball.trail.material;
+                    // Update colors
+                    trailMat.emissiveColor = new BABYLON.Color3(params.primary.r, params.primary.g, params.primary.b);
+                    trailMat.diffuseColor = new BABYLON.Color3(params.primary.r, params.primary.g, params.primary.b);
+                    
+                    // Update texture parameters
+                    if (trailMat.diffuseTexture) {
+                        trailMat.diffuseTexture.uScale = params.trail.uScale;
+                        trailMat.diffuseTexture.vScale = params.trail.vScale;
+                        trailMat.diffuseTexture.uOffset = params.trail.uOffset;
+                        trailMat.diffuseTexture.uAng = params.trail.uAng;
+                    }
+                    if (trailMat.opacityTexture) {
+                        trailMat.opacityTexture.uScale = params.trail.uScale;
+                        trailMat.opacityTexture.vScale = params.trail.vScale;
+                        trailMat.opacityTexture.uOffset = params.trail.uOffset;
+                        trailMat.opacityTexture.uAng = params.trail.uAng;
+                    }
+                }
+                
+                // Update secondary trail material
+                if (fireball.secondaryTrail && fireball.secondaryTrail.material) {
+                    const secondaryTrailMat = fireball.secondaryTrail.material;
+                    // Update colors
+                    secondaryTrailMat.emissiveColor = new BABYLON.Color3(params.secondary.r, params.secondary.g, params.secondary.b);
+                    secondaryTrailMat.diffuseColor = new BABYLON.Color3(params.secondary.r, params.secondary.g, params.secondary.b);
+                    
+                    // Update texture parameters
+                    if (secondaryTrailMat.diffuseTexture) {
+                        secondaryTrailMat.diffuseTexture.uScale = params.secondaryTrail.uScale;
+                        secondaryTrailMat.diffuseTexture.vScale = params.secondaryTrail.vScale;
+                        secondaryTrailMat.diffuseTexture.uOffset = params.secondaryTrail.uOffset;
+                        secondaryTrailMat.diffuseTexture.uAng = params.secondaryTrail.uAng;
+                    }
+                    if (secondaryTrailMat.opacityTexture) {
+                        secondaryTrailMat.opacityTexture.uScale = params.secondaryTrail.uScale;
+                        secondaryTrailMat.opacityTexture.vScale = params.secondaryTrail.vScale;
+                        secondaryTrailMat.opacityTexture.uOffset = params.secondaryTrail.uOffset;
+                        secondaryTrailMat.opacityTexture.uAng = params.secondaryTrail.uAng;
+                    }
+                }
+                
+                // Update particle system
+                if (fireball.particleSystem) {
+                    const ps = fireball.particleSystem;
+                    // Update colors
+                    ps.color1 = new BABYLON.Color4(params.primary.r, params.primary.g, params.primary.b, 1);
+                    ps.color2 = new BABYLON.Color4(params.secondary.r, params.secondary.g, params.secondary.b, 1);
+                    
+                    // Update emitter size based on core diameter
+                    const emitterSize = params.core.diameter * 0.2;
+                    ps.minEmitBox = new BABYLON.Vector3(-emitterSize, -emitterSize, -emitterSize);
+                    ps.maxEmitBox = new BABYLON.Vector3(emitterSize, emitterSize, emitterSize);
+                    
+                    // Update particle sizes based on core diameter
+                    ps.minSize = params.core.diameter * 0.01;
+                    ps.maxSize = params.core.diameter * 0.9;
+                }
+            });
+        };
+
+        // Update shader uniforms in fragment shader
+        BABYLON.Effect.ShadersStore["fireballFragmentShader"] = `
+            precision highp float;
+
+            uniform vec3 cameraPosition;
+            uniform float time;
+            uniform vec3 primaryColor;
+            uniform vec3 secondaryColor;
+            uniform vec4 noiseParams;  // x: scale1, y: scale2, z: speed1, w: speed2
+            uniform vec2 glowParams;   // x: intensity, y: power
+            
+            varying vec3 vPositionW;
+            varying vec3 vNormalW;
+            varying vec2 vUV;
+
+            // Simplex noise function
+            vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+            vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+            vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
+            vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+
+            float snoise(vec3 v) {
+                const vec2 C = vec2(1.0/6.0, 1.0/3.0);
+                const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
+
+                vec3 i  = floor(v + dot(v, C.yyy));
+                vec3 x0 = v - i + dot(i, C.xxx);
+
+                vec3 g = step(x0.yzx, x0.xyz);
+                vec3 l = 1.0 - g;
+                vec3 i1 = min(g.xyz, l.zxy);
+                vec3 i2 = max(g.xyz, l.zxy);
+
+                vec3 x1 = x0 - i1 + C.xxx;
+                vec3 x2 = x0 - i2 + C.yyy;
+                vec3 x3 = x0 - D.yyy;
+
+                i = mod289(i);
+                vec4 p = permute(permute(permute(
+                    i.z + vec4(0.0, i1.z, i2.z, 1.0))
+                    + i.y + vec4(0.0, i1.y, i2.y, 1.0))
+                    + i.x + vec4(0.0, i1.x, i2.x, 1.0));
+
+                float n_ = 0.142857142857;
+                vec3 ns = n_ * D.wyz - D.xzx;
+
+                vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
+
+                vec4 x_ = floor(j * ns.z);
+                vec4 y_ = floor(j - 7.0 * x_);
+
+                vec4 x = x_ *ns.x + ns.yyyy;
+                vec4 y = y_ *ns.x + ns.yyyy;
+                vec4 h = 1.0 - abs(x) - abs(y);
+
+                vec4 b0 = vec4(x.xy, y.xy);
+                vec4 b1 = vec4(x.zw, y.zw);
+
+                vec4 s0 = floor(b0)*2.0 + 1.0;
+                vec4 s1 = floor(b1)*2.0 + 1.0;
+                vec4 sh = -step(h, vec4(0.0));
+
+                vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy;
+                vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;
+
+                vec3 p0 = vec3(a0.xy, h.x);
+                vec3 p1 = vec3(a0.zw, h.y);
+                vec3 p2 = vec3(a1.xy, h.z);
+                vec3 p3 = vec3(a1.zw, h.w);
+
+                vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2,p2), dot(p3,p3)));
+                p0 *= norm.x;
+                p1 *= norm.y;
+                p2 *= norm.z;
+                p3 *= norm.w;
+
+                vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+                m = m * m;
+                return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
+            }
+
+            void main() {
+                vec3 viewDirectionW = normalize(cameraPosition - vPositionW);
+                float fresnelTerm = dot(viewDirectionW, vNormalW);
+                fresnelTerm = clamp(1.0 - fresnelTerm, 0., 1.);
+
+                // Animated noise with parameters
+                float noise1 = snoise(vec3(vUV * noiseParams.x, time * noiseParams.z)) * 0.5 + 0.5;
+                float noise2 = snoise(vec3(vUV * noiseParams.y, time * noiseParams.w + 1000.0)) * 0.5 + 0.5;
+                
+                // Update color mixing to use primary/secondary colors
+                vec3 finalColor = mix(primaryColor, secondaryColor, fresnelTerm * noise1);
+                finalColor += noise2 * 0.3;
+                
+                // Update glow color to use secondary color
+                float glow = pow(fresnelTerm, glowParams.y) * (noise1 * 0.5 + 0.5) * glowParams.x;
+                finalColor += glow * secondaryColor;
+
+                gl_FragColor = vec4(finalColor, 1.0);
+            }
+        `;
+
+        // Modify createFireballShader to include the new uniforms
+        const createFireballShader = () => {
+            BABYLON.Effect.ShadersStore["fireballVertexShader"] = `
+                precision highp float;
+                attribute vec3 position;
+                attribute vec2 uv;
+                attribute vec3 normal;
+
+                uniform mat4 world;
+                uniform mat4 worldViewProjection;
+                
+                varying vec3 vPositionW;
+                varying vec3 vNormalW;
+                varying vec2 vUV;
+
+                void main() {
+                    vec4 outPosition = worldViewProjection * vec4(position, 1.0);
+                    gl_Position = outPosition;
+                    
+                    vPositionW = vec3(world * vec4(position, 1.0));
+                    vNormalW = normalize(vec3(world * vec4(normal, 0.0)));
+                    vUV = uv;
+                }
+            `;
+
+            return new BABYLON.ShaderMaterial(
+                "fireballMaterial",
+                scene,
+                {
+                    vertex: "fireball",
+                    fragment: "fireball",
+                },
+                {
+                    attributes: ["position", "normal", "uv"],
+                    uniforms: [
+                        "world", "worldView", "worldViewProjection", 
+                        "view", "projection", "time", "cameraPosition",
+                        "primaryColor", "secondaryColor", "noiseParams", "glowParams"
+                    ]
+                }
+            );
+        };
+
+        // Modify createFireballVFX to set initial uniform values
+        const createFireballVFX = (scene, offsetAngle = 0) => {
+            const fireballParent = new BABYLON.TransformNode("fireballParent", scene);
+            
+            const fireballCore = BABYLON.MeshBuilder.CreateSphere("fireballCore", {
+                diameter: 1, //make editable
+                segments: 32
+            }, scene);
+            fireballCore.parent = fireballParent;
+
+            // Add trail system
+            const trail = new BABYLON.TrailMesh("trail", fireballCore, scene, 0.4, 200, true);
+            trailMaterial = new BABYLON.StandardMaterial("trailMat", scene);
+            trailMaterial.emissiveColor = new BABYLON.Color3(1, 0.3, 0);
+            trailMaterial.diffuseColor = new BABYLON.Color3(1, 0.3, 0);
+            trailMaterial.alpha = 0.9;
+            trailMaterial.alphaMode = BABYLON.Engine.ALPHA_ADD;
+            trailMaterial.backFaceCulling = false;
+
+            // Configure texture using selected option
+            const textureConfig = TRAIL_TEXTURES[params.trail.textureOption];
+            const trailTexture = new BABYLON.Texture(textureConfig.path, scene);
+            trailTexture.wrapU = BABYLON.Texture.WRAP_ADDRESSMODE;
+            trailTexture.wrapV = BABYLON.Texture.WRAP_ADDRESSMODE;
+            trailTexture.uScale = params.trail.uScale;
+            trailTexture.uOffset = params.trail.uOffset;
+            trailTexture.vScale = params.trail.vScale;
+            trailTexture.uAng = params.trail.uAng;
+
+            trailMaterial.diffuseTexture = trailTexture;
+            trailMaterial.opacityTexture = trailTexture;
+            trailMaterial.useAlphaFromDiffuseTexture = true;
+
+            trail.material = trailMaterial;
+
+            // Add UV animation to the render loop
+            let textureOffset = 0;
+            scene.registerBeforeRender(() => {
+                textureOffset += params.trail.scrollSpeed; // Use the parameter for speed
+                trailTexture.vOffset = textureOffset;
+            });
+
+            // Create and setup shader material
+            const fireballMaterial = createFireballShader();
+            fireballMaterial.setVector3("cameraPosition", scene.activeCamera.position);
+            fireballMaterial.setVector3("primaryColor", new BABYLON.Vector3(params.primary.r, params.primary.g, params.primary.b));
+            fireballMaterial.setVector3("secondaryColor", new BABYLON.Vector3(params.secondary.r, params.secondary.g, params.secondary.b));
+            fireballMaterial.setVector4("noiseParams", new BABYLON.Vector4(params.noise.scale1, params.noise.scale2, params.noise.speed1, params.noise.speed2));
+            fireballMaterial.setVector2("glowParams", new BABYLON.Vector2(params.glow.intensity, params.glow.power));
+            
+            // Add time animator
+            let time = 0;
+            scene.registerBeforeRender(() => {
+                time += scene.getEngine().getDeltaTime() / 1000;
+                fireballMaterial.setFloat("time", time);
+                fireballMaterial.setVector3("cameraPosition", scene.activeCamera.position);
+            });
+
+            fireballCore.material = fireballMaterial;
+
+            // Particle system with optimized settings
+            const fireSystem = new BABYLON.ParticleSystem("fireParticles", 1000, scene);
+            fireSystem.particleTexture = new BABYLON.Texture("/assets/textures/effects/flare.png", scene);
+            
+            fireSystem.emitter = fireballCore;
+            fireSystem.minEmitBox = new BABYLON.Vector3(-0.5, -0.5, -0.5);
+            fireSystem.maxEmitBox = new BABYLON.Vector3(0.5, 0.5, 0.5);
+
+            fireSystem.color1 = new BABYLON.Color4(1, 0.5, 0, 1);
+            fireSystem.color2 = new BABYLON.Color4(1, 0.3, 0, 1);
+            fireSystem.colorDead = new BABYLON.Color4(0, 0, 0, 0);
+
+            fireSystem.minSize = 0.01;
+            fireSystem.maxSize = 1.9;
+            fireSystem.minLifeTime = 0.9;
+            fireSystem.maxLifeTime = 4.9;
+            fireSystem.emitRate = 4; // Reduced for better performance
+
+            fireSystem.direction1 = new BABYLON.Vector3(-1, 0, -1);
+            fireSystem.direction2 = new BABYLON.Vector3(1, 0, 1);
+            // fireSystem.minAngularSpeed =  Math.PI * 2;
+            // fireSystem.maxAngularSpeed = Math.PI * 3;
+            fireSystem.minEmitPower = 1;
+            fireSystem.maxEmitPower = 2;
+            fireSystem.updateSpeed = 0.1;
+
+            fireSystem.minScaleX = 0.3; // Minimum horizontal scale
+            fireSystem.maxScaleX = 0.3;   // Maximum horizontal scale
+            fireSystem.minScaleY = 0.1; // Minimum vertical scale
+            fireSystem.maxScaleY = 0.4;   // Maximum vertical scale
+
+            fireSystem.start();
+
+            // Optimized animations using fewer keyframes
+            const spinningAnimation = new BABYLON.Animation(
+                "spinningAnimation",
+                "rotation.y",
+                30,
+                BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE
+            );
+
+            const keys = [
+                { frame: 0, value: 0 },
+                { frame: 30, value: 2 * Math.PI }
+            ];
+            spinningAnimation.setKeys(keys);
+
+            const circleAnimation = new BABYLON.Animation(
+                "circleAnimation",
+                "position",
+                30,
+                BABYLON.Animation.ANIMATIONTYPE_VECTOR3,
+                BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE
+            );
+
+            const radius = 10;
+            const circleKeys = [];
+            // Slower animation with same number of keyframes but spread over more frames
+            for (let i = 0; i <= 15; i++) {
+                const angle = (i / 15) * 2 * Math.PI + offsetAngle;
+                circleKeys.push({
+                    frame: i * 8, // Changed from i * 2 to i * 8 for slower movement
+                    value: new BABYLON.Vector3(
+                        radius * Math.cos(angle),
+                        2,
+                        radius * Math.sin(angle)
+                    )
+                });
+            }
+            circleAnimation.setKeys(circleKeys);
+
+            fireballParent.animations = [spinningAnimation, circleAnimation];
+            scene.beginAnimation(fireballParent, 0, 120, true); // Changed from 30 to 120 frames for full rotation
+
+            // Create secondary trail
+            const secondaryTrail = new BABYLON.TrailMesh("secondaryTrail", fireballCore, scene, 0.4, 200, true);
+            const secondaryTrailMaterial = new BABYLON.StandardMaterial("secondaryTrailMat", scene);
+            secondaryTrailMaterial.emissiveColor = new BABYLON.Color3(params.secondary.r, params.secondary.g, params.secondary.b);
+            secondaryTrailMaterial.diffuseColor = new BABYLON.Color3(params.secondary.r, params.secondary.g, params.secondary.b);
+            secondaryTrailMaterial.alpha = 0.9;
+            secondaryTrailMaterial.alphaMode = BABYLON.Engine.ALPHA_ADD;
+            secondaryTrailMaterial.backFaceCulling = false;
+
+            // Configure secondary trail texture
+            const secondaryTextureConfig = TRAIL_TEXTURES[params.secondaryTrail.textureOption];
+            const secondaryTrailTexture = new BABYLON.Texture(secondaryTextureConfig.path, scene);
+            secondaryTrailTexture.wrapU = BABYLON.Texture.WRAP_ADDRESSMODE;
+            secondaryTrailTexture.wrapV = BABYLON.Texture.WRAP_ADDRESSMODE;
+            secondaryTrailTexture.uScale = params.secondaryTrail.uScale;
+            secondaryTrailTexture.uOffset = params.secondaryTrail.uOffset;
+            secondaryTrailTexture.vScale = params.secondaryTrail.vScale;
+            secondaryTrailTexture.uAng = params.secondaryTrail.uAng;
+
+            secondaryTrailMaterial.diffuseTexture = secondaryTrailTexture;
+            secondaryTrailMaterial.opacityTexture = secondaryTrailTexture;
+            secondaryTrailMaterial.useAlphaFromDiffuseTexture = true;
+
+            secondaryTrail.material = secondaryTrailMaterial;
+            secondaryTrail.isVisible = params.secondaryTrail.enabled;
+
+            // Add UV animation for secondary trail
+            scene.registerBeforeRender(() => {
+                let textureOffset = 0;
+                textureOffset += params.secondaryTrail.scrollSpeed;
+                secondaryTrailTexture.vOffset = textureOffset;
+            });
+
+            return {
+                parent: fireballParent,
+                core: fireballCore,
+                particleSystem: fireSystem,
+                trail: trail,
+                secondaryTrail: secondaryTrail,
+                dispose: () => {
+                    fireSystem.dispose();
+                    trail.dispose();
+                    secondaryTrail.dispose();
+                    fireballCore.dispose();
+                    fireballParent.dispose();
+                }
+            };
+        };
+
+        function addFireball() {
+            const offset = (fireballs.length * (Math.PI / 4)) % (2 * Math.PI);
+            const fireball = createFireballVFX(scene, offset);
+            fireballs.push(fireball);
+            document.getElementById('count').textContent = fireballs.length;
+        }
+
+        function removeFireball() {
+            if (fireballs.length > 0) {
+                const fireball = fireballs.pop();
+                fireball.dispose();
+                document.getElementById('count').textContent = fireballs.length;
+            }
+        }
+
+        // Add performance monitor
+        scene.onBeforeRenderObservable.add(() => {
+            document.getElementById('fps').textContent = engine.getFps().toFixed(0);
+        });
+
+        // Render loop
+        engine.runRenderLoop(() => {
+            scene.render();
+        });
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            engine.resize();
+        });
+
+        // Add initial fireball
+        addFireball();
+
+        // Call setupGUI after scene initialization
+        setupGUI();
+
+        // Add this new function before the render loop
+        function exportFireballCode() {
+            const code = `// Fireball Effect Code
+// Add these parameters to your scene
+const params = ${JSON.stringify(params, null, 2)};
+
+// Add these shader definitions
+BABYLON.Effect.ShadersStore["fireballVertexShader"] = \`${BABYLON.Effect.ShadersStore["fireballVertexShader"]}\`;
+BABYLON.Effect.ShadersStore["fireballFragmentShader"] = \`${BABYLON.Effect.ShadersStore["fireballFragmentShader"]}\`;
+
+// Core creation functions
+${createFireballShader.toString()}
+
+${createFireballVFX.toString()}
+
+// Usage example:
+// const fireball = createFireballVFX(scene);
+`;
+
+            // Create and trigger download
+            const blob = new Blob([code], { type: 'text/javascript' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'fireball_effect.js';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Add these functions before the render loop
+        function saveParams() {
+            const paramsString = JSON.stringify(params);
+            const blob = new Blob([paramsString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'fireball_params.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function loadParams() {
+   const input = document.createElement('input');
+   input.type = 'file';
+   input.accept = '.json';
+   input.onchange = (event) => {
+       const file = event.target.files[0];
+       const reader = new FileReader();
+       reader.onload = (e) => {
+           try {
+               const loadedParams = JSON.parse(e.target.result);
+               // Update all param values
+               Object.keys(loadedParams).forEach(category => {
+                   Object.keys(loadedParams[category]).forEach(param => {
+                       params[category][param] = loadedParams[category][param];
+                   });
+               });
+               // Refresh all materials and meshes
+               updateMaterials();
+               // Rebuild GUI to reflect new values
+               const oldGui = document.querySelector('.lil-gui');
+               if (oldGui) oldGui.remove();
+               setupGUI();
+           } catch (error) {
+               console.error('Error loading parameters:', error);
+               alert('Invalid parameter file');
+           }
+       };
+       reader.readAsText(file);
+   };
+   input.click();
+        }
+
+        const presets = {
+            fire: {
+                primary: { r: 1.0, g: 0.3, b: 0.0 },
+                secondary: { r: 1.0, g: 0.7, b: 0.2 },
+                noise: { scale1: 5.0, scale2: 8.0, speed1: 0.5, speed2: 0.7 },
+                glow: { intensity: 1.0, power: 1.0 },
+                trail: {
+                    uOffset: 0.3,
+                    scrollSpeed: 0.005,
+                    uScale: 0.3,
+                    vScale: 0.5,
+                    textureOption: 'spelltrail',
+                    uAng: 0
+                },
+                core: {
+                    meshType: 'sphere',
+                    diameter: 1.0,
+                    segments: 32
+                }
+            },
+            arcane: {
+                primary: { r: 0.4, g: 0.2, b: 1.0 },
+                secondary: { r: 0.8, g: 0.4, b: 1.0 },
+                noise: { scale1: 8.0, scale2: 12.0, speed1: 0.8, speed2: 1.0 },
+                glow: { intensity: 1.5, power: 1.2 },
+                trail: {
+                    uOffset: 0.4,
+                    scrollSpeed: 0.008,
+                    uScale: 0.4,
+                    vScale: 0.6,
+                    textureOption: 'spell',
+                    uAng: 0.2
+                },
+                core: {
+                    meshType: 'icosphere',
+                    diameter: 0.8,
+                    segments: 24
+                }
+            },
+            test: {
+                primary:{r:0.287,g:1,b:0},secondary:{r:1,g:0.262,b:0},noise:{scale1:8,scale2:12,speed1:0.8,speed2:1},glow:{intensity:1.5,power:1.2},
+                trail:{uOffset:0.4,scrollSpeed:0.01066,uScale:0.4,vScale:2,textureOption:'spell',uAng:0.2},core:{meshType:'icosphere',diameter:0.8,segments:24}
+            },
+            fell : {primary:{r:0.25,g:1,b:0},secondary:{r:0.8,g:1,b:0.115},noise:{scale1:8,scale2:12,speed1:0.8,speed2:1},glow:{intensity:1.5,power:1.2},trail:{uOffset:0.4,scrollSpeed:0.0141,uScale:0.4,vScale:2,textureOption:"spell",uAng:0.2},core:{meshType:"icosphere",diameter:1.3253,segments:16}}
+            
+                    
+        };
+
+        function loadPreset(presetName) {
+            const preset = presets[presetName];
+            if (!preset) return;
+
+            // Update all param values
+            Object.keys(preset).forEach(category => {
+                Object.keys(preset[category]).forEach(param => {
+                    params[category][param] = preset[category][param];
+                });
+            });
+
+            // Refresh all materials and meshes
+            updateMaterials();
+            
+            // Rebuild GUI to reflect new values
+            const oldGui = document.querySelector('.lil-gui');
+            if (oldGui) oldGui.remove();
+            setupGUI();
+        }
+
+        // Add this new function before the render loop
+        function savePresetFormat() {
+            // Create condensed format
+            const condensed = {
+                primary: params.primary,
+                secondary: params.secondary,
+                noise: params.noise,
+                glow: params.glow,
+                trail: params.trail,
+                core: params.core
+            };
+            
+            // Convert to single-line format
+            const formatted = JSON.stringify(condensed)
+                .replace(/"([^"]+)":/g, '$1:') // Remove quotes from property names
+                .replace(/ /g, '') // Remove spaces
+                .replace(/},{/g, '},\n                ') // Add line breaks for readability
+                .replace(/"textureOption":"([^"]+)"/g, "textureOption:'$1'"); // Convert double quotes to single quotes for textureOption
+            
+            // Copy to clipboard
+            navigator.clipboard.writeText(formatted).then(() => {
+                alert('Preset format copied to clipboard!');
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                // Fallback: Create and trigger download
+                const blob = new Blob([formatted], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.download = 'fireball_preset.txt';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            });
+        }
+
+
+        
+
+
+
+
+
+function addLightrays(lightrays, scene, engine) {
+    
+
+
+    const createLightRayMaterial = (scene, engine) => {
+    const shaderMaterial = new BABYLON.ShaderMaterial("lightRayShader", scene, {
+        vertex: "../../../shaders/vfx/atmosphere/lightray",
+        fragment: "../../../shaders/vfx/atmosphere/lightray"
+    }, {
+        attributes: ["position", "uv"],
+        uniforms: ["world", "worldView", "worldViewProjection", "view", "projection", "time", "lightColor", "speed", "density", "falloff"],
+        needAlphaBlending: true,
+        needAlphaTesting: true
+    });
+    const texture = new BABYLON.Texture("/assets/util/atmosphere/lightrays/smoothLightshafts.png", scene);
+    shaderMaterial.setTexture("textureSampler", texture);
+    shaderMaterial.backFaceCulling = false;
+    shaderMaterial.needPre = false;
+    shaderMaterial.needDepthPrePass = false;
+    shaderMaterial.setFloat("time", 0);
+    shaderMaterial.setColor3("lightColor", new BABYLON.Color3(1, 0.9, 0.7));
+    shaderMaterial.setFloat("speed", 1.0);
+    // shaderMaterial.setFloat("density", 3.0);
+    // shaderMaterial.setFloat("falloff", 2.0);
+
+    const grassThinShader = new BABYLON.ShaderMaterial(
+        "grass_thin",
+        scene,
+        {
+            vertex: "../../../shaders/vfx/atmosphere/lightray",
+            fragment: "../../../shaders/vfx/atmosphere/lightray"
+        },
+        {
+            attributes: ["position", "normal", "uv", "color", "world0", "world1", "world2", "world3"],
+            uniforms: ["world", "worldView", "worldViewProjection", "view", "projection", "time", "viewProjection", "vFogInfos", "vFogColor", "color1", "color2", "colorBlendFactor"],
+            needAlphaTesting: true,
+            needAlphaBlending: true,
+        });
+
+    var grassThinTexture = new BABYLON.Texture("/assets/env/exterior/grass/grass_transparent_shadow.png", scene);
+    grassThinShader.setTexture("textureSampler", texture);
+    grassThinShader.setArray4("world0", [1, 0, 0, 0]);
+    grassThinShader.setArray4("world1", [0, 1, 0, 0]);
+    grassThinShader.setArray4("world2", [0, 0, 1, 0]);
+    grassThinShader.setArray4("world3", [0, 0, 0, 1]);
+    grassThinShader.backFaceCulling = false;
+    grassThinShader.needDepthPrePass = true;
+
+    grassThinShader.setColor3("color1", new BABYLON.Color3(0.0, 0.6, 0.4)); // Yellow
+    grassThinShader.setColor3("color2", new BABYLON.Color3(0.0, 0.2, 0.2)); // Orange
+    // grassThinShader.setVector4("color1", new BABYLON.Vector4(1.0, 0.7, 0.0, 0.0));  // Yellow, fully opaque
+    // grassThinShader.setVector4("color2", new BABYLON.Vector4(1.0, 0.2, 0.0, 0.0));  // Orange, slightly transparent
+  
+    grassThinShader.setFloat("colorBlendFactor", 0.6);
+
+    scene.onBeforeRenderObservable.add(() => {
+        const time = performance.now() * 0.001; // Current time in seconds
+        grassThinShader.setFloat("time", time);
+    });
+
+
+    let time = 0;
+    scene.registerBeforeRender(() => {
+        time += engine.getDeltaTime() * 0.01;
+        shaderMaterial.setFloat("time", time);
+        
+        // Add oscillating blend factor
+        const blendFactor = (Math.sin(time * 0.1) + 1) * 0.5; // Creates a 0-1 loop
+        grassThinShader.setFloat("colorBlendFactor", blendFactor);
+    });
+
+    BABYLON.Tools.LoadScriptAsync("https://cdn.jsdelivr.net/npm/lil-gui@0.17.0/dist/lil-gui.umd.min.js").then(() => {
+        const gui = new lil.GUI({ title: "RAY" });
+
+
+const params = {
+    colorBlendFactor: 0.6,
+    color1: [1.0, 0.7, 0.0],
+    color2: [1.0, 0.2, 0.0]
+};
+
+gui.add(params, "colorBlendFactor", 0, 1, 0.01)
+   .onChange(value => {
+    grassThinShader.setFloat("colorBlendFactor", value);
+   });
+
+// Add color controls
+const color1Control = gui.addColor(params, "color1")
+   .onChange(value => {
+    grassThinShader.setColor3("color1", BABYLON.Color3.FromArray(value));
+   });
+
+const color2Control = gui.addColor(params, "color2")
+   .onChange(value => {
+    grassThinShader.setColor3("color2", BABYLON.Color3.FromArray(value));
+   });
+    });
+
+
+    return grassThinShader;
+};
+
+
+    lightrays.position.x = 40;
+    lightrays.position.z = 40;
+    lightrays.scaling = new BABYLON.Vector3(10, 10, 10);
+    const lightRayMaterial = createLightRayMaterial(scene, engine);
+    // const lightRayMaterial = createLightRayPBR(scene, engine);
+    lightrays.getChildMeshes().forEach(function (childMesh) {
+        childMesh.material = lightRayMaterial;
+        childMesh.scaling.y = 5;
+        childMesh.scaling.x = 3;
+        // childMesh.billboardMode = 2;
+
+    });
+    placeLightRaysMesh(lightrays, scene);
+    // placeLightRaysInstance(lightrays, scene);
+
+    // lightshaftsAsParticles(scene);
+    // particles(scene);
+}
+
+function placeLightRaysMesh(lightrays, scene) {
+    function getRandomInRange(min, max) {
+        return Math.random() * (max - min) + min;
+    }
+
+    lightrays.getChildMeshes().forEach(function (childMesh) {
+        // childMesh.billboardMode = 2;
+
+        const lightraysToPlace = 6;
+        const minX = 8;
+        
+        const maxX = 12;
+        const minZ = 3;
+        const maxZ = 5;
+        for (let i = 0; i < lightraysToPlace; i++) {
+            const matrix = BABYLON.Matrix.Identity();
+            let x = getRandomInRange(minX, maxX);
+            let z = getRandomInRange(minZ, maxZ);
+
+            const fixedRotation = BABYLON.Quaternion.RotationAxis(BABYLON.Axis.Z, Math.PI / 8);
+            // const randomRotation = BABYLON.Quaternion.RotationAxis(BABYLON.Axis.Z, Math.random() * Math.PI * 2);
+            // const combinedRotation = fixedRotation.multiply(randomRotation);
+
+            const clone = childMesh.clone("lightrayClone");
+
+            // Place the instance at a specific position
+            clone.position = new BABYLON.Vector3(x, -20, z); // Example position (x: 2, y: 0, z: 0)
+            clone.scaling.x = 5 + clone.scaling.x * 1 * x / 20;
+            clone.scaling.y = clone.scaling.y * 3;
+
+            clone.rotationQuaternion = fixedRotation;
+        }
+    });
+}
+}
+start();
+    </script>
+</body>
+</html>

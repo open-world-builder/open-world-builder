@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RPG World Builder</title>
+
+    <link
+      defer
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/assets/util/icons/apple-touch-icon.png"
+    />
+    <link
+      defer
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/assets/util/icons/favicon-32x32.png"
+    />
+    <link
+      defer
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="/assets/util/icons/favicon-16x16.png"
+    />
+    <link defer rel="manifest" href="/assets/util/icons/site.webmanifest" />
+
+    <style>
+      html,
+      body {
+        overflow: hidden;
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        background: black;
+      }
+
+      #renderCanvas {
+        width: 100%;
+        height: 100%;
+        touch-action: none;
+      }
+
+      .animated-number {
+        position: absolute;
+        color: red;
+        font-size: 2em;
+        text-shadow: 2px 2px 0 black, -2px -2px 0 black, 2px -2px 0 black,
+          -2px 2px 0 black;
+        animation-timing-function: cubic-bezier(0.5, 0, 1, 1);
+      }
+
+      #toolBar {
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        width: 100%;
+        transform: translateX(-50%);
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        z-index: 2;
+      }
+
+      .toolButton {
+        padding: 10px 20px;
+        background: #44444400;
+        color: white;
+        cursor: pointer;
+        border: none;
+      }
+
+      .toolIcon:focus {
+        /* color: white; */
+        border: 2px solid rgb(245, 202, 86);
+        box-shadow: 0 0 8px rgb(245, 202, 86), inset 0 0 8px rgb(245, 202, 86);
+        outline: none;
+        /* Remove the default focus outline */
+      }
+
+      .toolIcon:hover {
+        border: 2px solid rgb(245, 202, 86);
+        box-shadow: 0 0 8px rgb(245, 202, 86), inset 0 0 8px rgb(245, 202, 86);
+      }
+
+      .selected {
+        border: 2px solid rgb(245, 202, 86) !important;
+        box-shadow: 0 0 8px rgb(245, 202, 86), inset 0 0 8px rgb(245, 202, 86);
+        outline: none;
+      }
+
+      .toolIcon {
+        width: 100%;
+        height: 100px;
+        /* box-shadow: 0 19px 38px rgba(0, 0, 0, 0.70), inset 0 15px 12px rgba(0, 0, 0, 0.22); */
+        border: 2px solid rgba(0, 0, 0, 0);
+        /* border: 2px solid rgb(245, 202, 86); */
+        transition: all 0.3s ease-in-out;
+        border-radius: 100%;
+      }
+
+      .toolContainer {
+        position: relative;
+        display: inline-block;
+        margin: 5px;
+      }
+
+      .toolButton {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 5px;
+        /* background-color: #f0f0f0; */
+        /* border: 1px solid #ccc; */
+        border-radius: 5px;
+        cursor: pointer;
+      }
+
+      .toolButton:hover {
+        /* background-color: #e0e0e0; */
+      }
+
+      .toolButton.selected {
+        border: 2px solid rgb(245, 202, 86);
+        box-shadow: 0 0 8px rgb(245, 202, 86), inset 0 0 8px rgb(245, 202, 86);
+      }
+
+      .subToolContainer {
+        position: absolute;
+        bottom: 100%;
+        left: 0;
+        display: flex;
+        flex-direction: column;
+
+        /* border: 1px solid #ccc; */
+        border-radius: 5px;
+        opacity: 0;
+        transform: translateY(10px);
+        transition: opacity 0.3s, transform 0.3s;
+        pointer-events: none;
+        width: 100%;
+      }
+
+      .toolContainer:hover .subToolContainer {
+        opacity: 1;
+        transform: translateY(0);
+        pointer-events: auto;
+      }
+
+      .subToolButton {
+        padding: 5px 10px;
+        /* background-color: #f0f0f0; */
+        border: none;
+        cursor: pointer;
+        margin-bottom: 25px;
+        border-radius: 30%;
+        background-color: rgba(0, 0, 0, 0.6);
+        box-shadow: 0 19px 38px rgba(0, 0, 0, 0.7),
+          inset 0 15px 12px rgba(0, 0, 0, 0.22);
+        border: 2px solid rgba(245, 203, 86, 0);
+        color: rgb(245, 202, 86);
+        transition: all 0.3s;
+        height: 40px;
+        font-family: "Open Sans", "Helvetica Neue", sans-serif;
+      }
+
+      .subToolButton:hover {
+        /* background-color: #e0e0e0; */
+        border: 2px solid rgb(245, 202, 86);
+        box-shadow: 0 0 8px rgb(245, 202, 86), inset 0 0 8px rgb(245, 202, 86);
+      }
+
+      #renderCanvas {
+        width: 100%;
+        height: 100%;
+        filter: blur(10px);
+        opacity: 0;
+        transition: all 2s ease-out;
+      }
+
+      #renderCanvas.visible {
+        opacity: 1;
+        filter: blur(0px);
+      }
+
+      .graphics-section {
+        margin: 15px 0;
+        padding: 10px;
+        background-color: #22222241;
+        border-radius: 4px;
+      }
+
+      .option-item {
+        margin: 10px 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .option-item select {
+        padding: 4px;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+      }
+
+      #skillBar {
+        display: none;
+      }
+
+      .assetBrowser::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.9);
+        background-image: url("/assets/textures/terrain/icons/bar_background.png");
+        background-size: 102.5% 180%;
+        padding: 20px;
+        border-radius: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        z-index: -1;
+        transition: 0.3s;
+        background-position: -20px -83px;
+        background-repeat: no-repeat;
+        opacity: 0.92;
+      }
+
+      #assetBrowserButton {
+        background-color: rgba(0, 0, 0, 0);
+        background-position: 0% 0%, 0% 0%;
+        background-repeat: repeat, repeat;
+        background-attachment: scroll, scroll;
+        background-image: url("./test metal 2.jpg"),
+          linear-gradient(
+            rgb(70, 37, 35) 0%,
+            rgb(230, 139, 0) 22%,
+            rgb(246, 226, 122) 45%,
+            rgb(244, 216, 108) 50%,
+            rgb(246, 226, 122) 55%,
+            rgb(203, 155, 81) 78%,
+            rgb(70, 37, 35) 100%
+          );
+        background-size: auto, auto;
+        background-origin: padding-box, padding-box;
+        background-clip: text;
+        position: absolute;
+        background-blend-mode: overlay;
+        -webkit-text-fill-color: transparent;
+      }
+
+      #assetBrowser div input:focus {
+        outline: none;
+      }
+
+      #myJoystickCanvas {
+        position: absolute !important;
+        /* Ensure it remains absolute */
+        bottom: 0;
+        /* Anchor to bottom */
+        left: 0;
+        /* Anchor to left */
+        top: auto !important;
+        /* Disable default top: 0 */
+        right: auto !important;
+        /* Disable any right: 0 */
+        width: 50% !important;
+        /* Customize size as needed */
+        height: 53% !important;
+        background: transparent;
+        /* Keep it see-through */
+        touch-action: none;
+        /* Preserve joystick input behavior */
+      }
+
+      #actionTabs .tabsMenu .panes .pane .sliderLine .floatLine .short input {
+        width: 54px !important;
+        margin-left: -12px !important;
+        padding: 0.3rem 0.28rem !important;
+        margin-top: -9px !important;
+      }
+
+      #sceneExplorer {
+        z-index: 1111 !important;
+        background: #4444442e !important;
+      }
+
+      #inspector-host {
+        z-index: 1111 !important;
+      }
+
+      #actionTabs {
+        background: #4444442e !important;
+        z-index: 1111 !important;
+      }
+
+      .babylonUnmute {
+        right: 26px;
+      }
+      canvas {
+        outline: none;
+      }
+    </style>
+
+    <script>
+      // Record the time when the page starts loading
+      const startTime = performance.now();
+      let domLoadTime;
+      document.addEventListener("DOMContentLoaded", () => {
+        const endTime = performance.now();
+        domLoadTime = endTime - startTime;
+        console.log(`DOM loaded in ${domLoadTime.toFixed(2)} milliseconds`);
+      });
+    </script>
+
+    <!-- Babylon 8 -->
+    <script src="./lib/babylon-8.js"></script>
+    <!-- Babylon 8 -->
+
+    <script src="/lib/recast.js"></script>
+
+    <!-- <script
+      defer
+      src="https://cdn.babylonjs.com/babylon.navigation.js"
+    ></script> -->
+
+    <!-- Babylon 7 -->
+    <!-- <script src="./lib/babylon.js"></script> -->
+
+    <!-- <script src="./lib/babylon.gui.min.js"></script> -->
+    <script defer src="./lib/babylonjs.loaders.min.js"></script>
+
+    <script defer src="./lib/HavokPhysics_umd.js"></script>
+
+    <!-- Optional, Disable for reload performance -->
+    <script defer src="./lib/pep.js"></script>
+
+    <script defer src="./lib/babylon.terrainMaterial.js"></script>
+
+    <script defer src="./lib/babylon.inspector.bundle.js"></script>
+
+    <script defer src="./lib/tweakpane2.min.js"></script>
+
+    <!-- <script src="https://cdn.jsdelivr.net/npm/tweakpane@3.1.0/dist/tweakpane.min.js"></script> -->
+
+    <script defer src="./lib/babylon.customMaterial.min.js"></script>
+    <script defer src="/lib/stats.min.js"></script>
+
+    <script defer src="/lib/MSDF-Text/MSDF-text-single.js"></script>
+
+    <!-- remove, used for vat baking -->
+    <!-- <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script> -->
+
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-Z5WXS125T4"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-Z5WXS125T4");
+    </script>
+    <script type="text/javascript">
+      (function (c, l, a, r, i, t, y) {
+        c[a] =
+          c[a] ||
+          function () {
+            (c[a].q = c[a].q || []).push(arguments);
+          };
+        t = l.createElement(r);
+        t.async = 1;
+        t.src = "https://www.clarity.ms/tag/" + i;
+        y = l.getElementsByTagName(r)[0];
+        y.parentNode.insertBefore(t, y);
+      })(window, document, "clarity", "script", "rfcr2t4g7r");
+    </script>
+  </head>
+
+  <body>
+    <canvas
+      id="renderCanvas"
+      class="blurry"
+      touch-action="none"
+      tabindex="0"
+    ></canvas>
+    <div id="toolBar"></div>
+    <div id="skillBar">
+      <div class="skill-slot" draggable="true" data-slot="1">
+        <div class="cooldown"></div>
+        <div class="key-bind">1</div>
+      </div>
+      <div class="skill-slot" draggable="true" data-slot="2">
+        <div class="cooldown"></div>
+        <div class="key-bind">2</div>
+      </div>
+      <div class="skill-slot" draggable="true" data-slot="3">
+        <div class="cooldown"></div>
+        <div class="key-bind">3</div>
+      </div>
+      <div class="skill-slot" draggable="true" data-slot="4">
+        <div class="cooldown"></div>
+        <div class="key-bind">4</div>
+      </div>
+      <!--4 for mobile maybe-->
+      <div class="skill-slot" draggable="true" data-slot="5">
+        <div class="cooldown"></div>
+        <div class="key-bind">5</div>
+      </div>
+      <div class="skill-slot" draggable="true" data-slot="6">
+        <div class="cooldown"></div>
+        <div class="key-bind">6</div>
+      </div>
+      <div class="skill-slot" draggable="true" data-slot="7">
+        <div class="cooldown"></div>
+        <div class="key-bind">7</div>
+      </div>
+      <div class="skill-slot" draggable="true" data-slot="8">
+        <div class="cooldown"></div>
+        <div class="key-bind">8</div>
+      </div>
+      <div class="skill-slot" draggable="true" data-slot="9">
+        <div class="cooldown"></div>
+        <div class="key-bind">9</div>
+      </div>
+    </div>
+
+    <!-- background-image: url('/assets/util/ui/backgrounds/subtitle background.png');
+  background-image: url('/assets/util/ui/icons/action nameplate.png');
+  -->
+    <div
+      id="interact-tip"
+      style="
+        display: none;
+        position: absolute;
+        opacity: 0;
+        transition: opacity 0.5s ease, backdrop-filter 0.5s ease;
+
+        background-position: 0px 0px;
+        background-size: 110px 64px;
+        height: 70px;
+        width: 150px;
+        background-repeat: no-repeat;
+
+        color: white;
+        line-height: 60px;
+        padding-left: 20px;
+        text-shadow: rgba(0, 0, 0, 0.7) 1px 0px 5px;
+        pointer-events: none;
+      "
+    ></div>
+
+    <script defer src="./src/GLOBALS.js"></script>
+    <script type="module" src="/game.js"></script>
+
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,690 @@
+<!-- choose on hit particle, self particle, projfection effect -->
+<!-- choose on hit sound, casting sound, cast end sound -->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>VAT Animation Importer/Editor</title>
+    <style>
+      body,
+      html {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #000;
+      }
+      #app {
+        /* display: flex; */
+        height: 100%;
+      }
+      #renderCanvas {
+        flex: 1;
+        width: 100%;
+        height: 100%;
+        filter: blur(20px);
+        opacity: 0;
+        transition: opacity 0.9s ease-out, filter 0.9s ease-out;
+        background: #000;
+      }
+
+      #renderCanvas.fade-blur {
+        filter: blur(0px);
+        opacity: 1;
+      }
+      #skill-editor {
+        opacity: 0;
+      }
+      #effect-editor-container {
+        background: #000;
+      }
+      #controls {
+        width: 440px;
+        padding: 10px;
+        background: #111;
+        color: #eee;
+        font-family: sans-serif;
+        position: absolute;
+        top: 0px;
+        right: 0px;
+      }
+      button {
+        width: 100%;
+        margin: 5px 0;
+        padding: 8px;
+        background: #444;
+        border: none;
+        color: #eee;
+        cursor: pointer;
+      }
+      input[type="range"] {
+        width: 100%;
+      }
+      label {
+        font-size: 26px;
+        display: block;
+        margin-top: 10px;
+        margin-bottom: 10px;
+      }
+      #babylonUnmuteButton {
+        margin-left: 200px;
+      }
+      .sub-options {
+        max-width: 120px;
+      }
+      input[type="range"] {
+        -webkit-appearance: none; /* Remove default styling */
+        width: 100%;
+        height: 40px; /* Height of the track */
+        background: #ddd;
+        border-radius: 6px;
+      }
+
+      /* Track (WebKit/Blink) */
+      input[type="range"]::-webkit-slider-runnable-track {
+        height: 40px;
+        background: #ccc;
+        border-radius: 6px;
+      }
+
+      /* Thumb (WebKit/Blink) */
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        height: 40px;
+        width: 40px;
+        background: #333;
+        border-radius: 50%;
+        cursor: pointer;
+        margin-top: -6px; /* Align thumb vertically */
+      }
+
+      /* Track (Firefox) */
+      input[type="range"]::-moz-range-track {
+        height: 40px;
+        background: #2d2d2d;
+        border-radius: 6px;
+      }
+
+      /* Thumb (Firefox) */
+      input[type="range"]::-moz-range-thumb {
+        height: 40px;
+        width: 10px;
+        background: #333;
+        border-radius: 10%;
+        cursor: pointer;
+      }
+
+      /* Track (IE/Edge) */
+      input[type="range"]::-ms-track {
+        height: 40px;
+        background: transparent;
+        border-color: transparent;
+        color: transparent;
+      }
+
+      /* Thumb (IE/Edge) */
+      input[type="range"]::-ms-thumb {
+        height: 24px;
+        width: 24px;
+        background: #333;
+        border-radius: 50%;
+        cursor: pointer;
+      }
+      .exact {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 120px;
+        margin-left: 10px;
+        margin-right: 10px;
+        margin-top: 45px;
+        font-size: 20px !important;
+      }
+      input[type="number"] {
+        font-size: 20px !important;
+        background: rgb(45, 45, 45);
+        color: white;
+        font-size: 20px;
+        border: 0px;
+        padding: 9px;
+      }
+    </style>
+    <script src="/lib/babylon-8.js"></script>
+    <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+
+    <script src="/lib/vue.global.prod.min.js"></script>
+    <script src="/lib/babylon.inspector.bundle.js"></script>
+    <script src="/lib/babylonjs.loaders.min.js"></script>
+    <script src="/lib/babylon.customMaterial.min.js"></script>
+    <script src="/lib/HavokPhysics_umd.js"></script>
+    <script src="/src/GLOBALS.js"></script>
+
+    <!-- <script type="module"> -->
+    <!-- // import * as BABYLON from "https://cdn.jsdelivr.net/npm/@babylonjs/core@5/esm/index.js"; -->
+    <!-- </script> -->
+  </head>
+  <body>
+    <canvas id="renderCanvas"></canvas>
+
+    <div id="app"></div>
+    <div id="controls">
+      <div style="display: flex; align-items: center; gap: 10px">
+        <div style="flex: 1">
+          <label>Start Frame</label>
+          <input type="range" id="v4x" min="0" max="2000" value="0" />
+        </div>
+        <div class="exact">
+          <input type="number" id="v4x_exact" value="0" style="width: 70px" />
+          <span id="v4xValue" style="display: none">0</span>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 10px">
+        <div style="flex: 1">
+          <label>End Frame</label>
+          <input type="range" id="v4y" min="0" max="2000" value="30" />
+        </div>
+        <div class="exact">
+          <input type="number" id="v4y_exact" value="30" style="width: 70px" />
+          <span id="v4yValue" style="display: none">30</span>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 10px">
+        <div style="flex: 1">
+          <label>Offset</label>
+          <input type="range" id="v4z" min="0" max="2000" value="0" />
+        </div>
+        <div class="exact">
+          <input type="number" id="v4z_exact" value="0" style="width: 70px" />
+          <span id="v4zValue" style="display: none">0</span>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 10px">
+        <div style="flex: 1">
+          <label>FPS</label>
+          <input type="range" id="v4w" min="1" max="400" value="220" />
+        </div>
+        <div class="exact">
+          <input type="number" id="v4w_exact" value="220" style="width: 70px" />
+          <span id="v4wValue" style="display: none">220</span>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 10px">
+        <div style="flex: 1">
+          <label>Time Line</label>
+          <input type="range" id="relative_range" min="1" max="5500" value="1" />
+        </div>
+        <div class="exact">
+          <input type="number" id="relative_range_exact" value="1" max="5500" style="width: 70px" />
+          <span id="relative_range_value" style="display: none">1</span>
+        </div>
+      </div>
+
+      <div style="display: none; margin: 10px 0; padding: 10px; background: #222; border-radius: 4px">
+        <div style="font-size: 18px; margin-bottom: 10px">Current Range:</div>
+        <div style="display: flex; justify-content: space-between">
+          <div>Start: <span id="relative_start">0</span></div>
+          <div>End: <span id="relative_end">1</span></div>
+        </div>
+      </div>
+
+      <div style="margin-top: 15px">
+        <button onclick="saveCurrentPreset()">Save Current as Preset</button>
+        <button onclick="copyPresetsToClipboard()">Copy Presets as Ranges</button>
+        <div id="savedPresets"></div>
+      </div>
+    </div>
+
+    <script type="module">
+      let manager; // Keep this global
+
+      // Move these functions outside the DOMContentLoaded handler and make them global
+      window.updateAnimationParameters = function () {
+        // if (manager) {
+        // console.log("window.manager", window.manager);
+
+        const x = parseFloat(document.getElementById("v4x").value);
+        const y = parseFloat(document.getElementById("v4y").value);
+        const z = parseFloat(document.getElementById("v4z").value);
+        const w = parseFloat(document.getElementById("v4w").value);
+        window.manager.animationParameters = new BABYLON.Vector4(x, y, z, w);
+        // }
+      };
+
+      document.getElementById("v4x_exact").addEventListener("change", (e) => {
+        const value = Math.min(Math.max(parseFloat(e.target.value) || 0, 0), 2000);
+        document.getElementById("v4x").value = value;
+        document.getElementById("v4xValue").textContent = value;
+        e.target.value = value;
+        updateAnimationParameters();
+      });
+
+      document.getElementById("v4y_exact").addEventListener("change", (e) => {
+        const value = Math.min(Math.max(parseFloat(e.target.value) || 0, 0), 2000);
+        document.getElementById("v4y").value = value;
+        document.getElementById("v4yValue").textContent = value;
+        e.target.value = value;
+        updateAnimationParameters();
+      });
+
+      document.getElementById("v4z_exact").addEventListener("change", (e) => {
+        const value = Math.min(Math.max(parseFloat(e.target.value) || 0, 0), 2000);
+        document.getElementById("v4z").value = value;
+        document.getElementById("v4zValue").textContent = value;
+        e.target.value = value;
+        updateAnimationParameters();
+      });
+
+      document.getElementById("v4w_exact").addEventListener("change", (e) => {
+        const value = Math.min(Math.max(parseFloat(e.target.value) || 1, 1), 400);
+        document.getElementById("v4w").value = value;
+        document.getElementById("v4wValue").textContent = value;
+        e.target.value = value;
+        updateAnimationParameters();
+      });
+
+      // Modify the existing slider event listeners to update the exact value inputs
+      document.getElementById("v4x").addEventListener("input", (e) => {
+        document.getElementById("v4xValue").textContent = e.target.value;
+        document.getElementById("v4x_exact").value = e.target.value;
+        updateAnimationParameters();
+      });
+
+      document.getElementById("v4y").addEventListener("input", (e) => {
+        document.getElementById("v4yValue").textContent = e.target.value;
+        document.getElementById("v4y_exact").value = e.target.value;
+        updateAnimationParameters();
+      });
+
+      document.getElementById("v4z").addEventListener("input", (e) => {
+        document.getElementById("v4zValue").textContent = e.target.value;
+        document.getElementById("v4z_exact").value = e.target.value;
+        updateAnimationParameters();
+      });
+
+      document.getElementById("v4w").addEventListener("input", (e) => {
+        document.getElementById("v4wValue").textContent = e.target.value;
+        document.getElementById("v4w_exact").value = e.target.value;
+        updateAnimationParameters();
+      });
+
+      // Update the setPreset function to also update exact value inputs
+      window.setPreset = function (x, y, z, w) {
+        document.getElementById("v4x").value = x;
+        document.getElementById("v4y").value = y;
+        document.getElementById("v4z").value = z;
+        document.getElementById("v4w").value = w;
+
+        document.getElementById("v4x_exact").value = x;
+        document.getElementById("v4y_exact").value = y;
+        document.getElementById("v4z_exact").value = z;
+        document.getElementById("v4w_exact").value = w;
+
+        document.getElementById("v4xValue").textContent = x;
+        document.getElementById("v4yValue").textContent = y;
+        document.getElementById("v4zValue").textContent = z;
+        document.getElementById("v4wValue").textContent = w;
+
+        updateAnimationParameters();
+      };
+
+      window.savedPresets = [];
+
+      window.saveCurrentPreset = function () {
+        const x = parseFloat(document.getElementById("v4x").value);
+        const y = parseFloat(document.getElementById("v4y").value);
+        const z = parseFloat(document.getElementById("v4z").value);
+        const w = parseFloat(document.getElementById("v4w").value);
+
+        const preset = { x, y, z, w };
+        const presetIndex = window.savedPresets.length;
+        window.savedPresets.push(preset);
+
+        // Create preset button
+        const presetsContainer = document.getElementById("savedPresets");
+        const presetButton = document.createElement("button");
+        presetButton.textContent = `Preset ${presetIndex + 1} (${x}-${y})`;
+        presetButton.onclick = () => setPreset(x, y, z, w);
+        presetsContainer.appendChild(presetButton);
+      };
+
+      window.copyPresetsToClipboard = function () {
+        const ranges = window.savedPresets
+          .map((preset, index) => {
+            return `{ from: ${preset.x}, to: ${preset.y} }`;
+          })
+          .join(",\n");
+
+        const rangesText = `const animationRanges = [\n${ranges}\n];`;
+        navigator.clipboard.writeText(rangesText).then(() => {
+          alert("Presets copied to clipboard as ranges!");
+        });
+      };
+
+      import { setupCamera } from "/src/utils/camera.js";
+
+      window.addEventListener("DOMContentLoaded", async () => {
+        // 2) init Babylon
+        const canvas = document.getElementById("renderCanvas");
+        const engine = new BABYLON.Engine(canvas, true);
+        const scene = new BABYLON.Scene(engine);
+        let camera;
+
+        // const camera = new BABYLON.ArcRotateCamera("cam", Math.PI / 2, 1.2, 30, BABYLON.Vector3.Zero(), scene);
+        // camera.lowerRadiusLimit = 1;
+        // camera.wheelDeltaPercentage = 0.02;
+        // camera.attachControl(canvas, true);
+
+        // Add debug layer toggle on Tab key
+        window.addEventListener("keydown", (ev) => {
+          if (ev.key === "Tab") {
+            ev.preventDefault(); // Prevent Tab from changing focus
+            if (scene.debugLayer.isVisible()) {
+              scene.debugLayer.hide();
+            } else {
+              scene.debugLayer.show();
+            }
+          }
+        });
+
+        // First Run Setup
+        async function setup() {
+          //   camera = await setupCharacter();
+          //   setTimeout(async () => {
+          camera = await setupVatCharater();
+          //   }, 1000);
+
+          new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+          engine.runRenderLoop(() => scene.render());
+          const TARGET_FPS = 30;
+          const FRAME_DURATION_MS = 1000 / TARGET_FPS;
+
+          let accumulator = 0;
+
+          engine.runRenderLoop(() => {
+            const dt = engine.getDeltaTime(); // ms since *last* RAF tick
+            accumulator += dt;
+
+            //   // always keep the VAT clock moving
+            //     // manager.time += dt / 1000;
+
+            //   // only draw when we've accumulated a full frame‑slice
+            if (accumulator >= FRAME_DURATION_MS) {
+              scene.render();
+              accumulator -= FRAME_DURATION_MS;
+            }
+          });
+          window.addEventListener("resize", () => engine.resize());
+          document.getElementById("renderCanvas").classList.add("fade-blur");
+        }
+        setup();
+
+        function loadBakedVAT() {
+          // Load a pre-baked vat json at runtime
+          fetch("/assets/characters/human_basemesh/remotePlayerForVAT_vertexData.json")
+            .then((response) => {
+              return response.json();
+            })
+            .then(async (jsonData) => {
+              const jsonString = await JSON.stringify(jsonData);
+
+              manager = new BABYLON.BakedVertexAnimationManager(scene);
+              const vertexData = baker.loadBakedVertexDataFromJSON(jsonString);
+              const vertexTexture = baker.textureFromBakedVertexData(vertexData);
+
+              manager.texture = vertexTexture;
+
+              vatMat.bakedVertexAnimationManager = manager; // ⚠️ the missing link
+              mesh.material.bakedVertexAnimationManager = manager;
+              mesh.bakedVertexAnimationManager = manager;
+
+              scene.registerBeforeRender(() => {
+                manager.time += scene.getEngine().getDeltaTime() / 1000.0;
+              });
+            });
+
+          // const assetsManager = new BABYLON.AssetsManager(scene);
+          // const vatTask = assetsManager.addTextFileTask("load VAT JSON", "/assets/characters/human_basemesh/remotePlayerForVAT_vertexData.json");
+
+          // Load a pre-baked VAT texture instead of baking at runtime
+          // const vatTexturePath = "/assets/characters/human_basemesh/VATCharacter.png";
+          // const vertexTexture = new BABYLON.Texture(vatTexturePath, scene);
+
+          // // Set texture parameters for proper VAT rendering
+          // vertexTexture.wrapU = BABYLON.Texture.CLAMP_ADDRESSMODE;
+          // vertexTexture.wrapV = BABYLON.Texture.CLAMP_ADDRESSMODE;
+          // vertexTexture.updateSamplingMode(BABYLON.Texture.BILINEAR_SAMPLINGMODE);
+
+          // // Create a dummy vertexData object to satisfy the manager
+          // const vertexData = {
+          //   width: 264, // Width of your VAT texture
+          //   height: 1120, // Height based on your animation frames
+          //   getTextureWidth: () => vertexData.width,
+          //   getTextureHeight: () => vertexData.height,
+          // };
+          // const finalRanges = ranges;
+
+          // const manager = new BABYLON.BakedVertexAnimationManager(scene);
+
+          // manager.texture = vertexTexture;
+          // manager.animationParameters = new BABYLON.Vector4(0, "30", 0, 30);
+
+          // vatMat.bakedVertexAnimationManager = manager; // ⚠️ the missing link
+          // mesh.material.bakedVertexAnimationManager = manager;
+          // mesh.bakedVertexAnimationManager = manager;
+
+          // manager.animationParameters = new BABYLON.Vector4(0, "30", 0, 30);
+
+          // scene.registerBeforeRender(() => {
+          //   // console.log("scene.getEngine().getDeltaTime()", scene.getEngine().getDeltaTime());
+          //   manager.time += scene.getEngine().getDeltaTime() / 1000.0;
+          // });
+        }
+
+        async function bakeVAT(scene, folder = "/assets/characters/human_basemesh/", file = "remotePlayerForVAT_includessprint.glb") {
+          //   const importResult = await BABYLON.ImportMeshAsync("https://raw.githubusercontent.com/RaggarDK/Baby/baby/arr.babylon", scene, undefined);
+          const { meshes, skeletons, animationGroups } = await BABYLON.SceneLoader.ImportMeshAsync(
+            "", // root url
+            folder, // folder
+            file,
+            //   "remotePlayerForVAT.glb",
+            scene
+          );
+
+          //   const mesh = meshes.find((mesh) => mesh.name === "base");
+          const mesh = meshes[0].getChildMeshes()[0];
+          console.log("base mesh", mesh);
+
+          /* GLB exports start every clip at 0, so we build our own ranges       */
+          const fps = 30; // change if you exported at another FPS
+          // const ranges = this.buildRanges(animationGroups, fps); // ⇢ [{ name, from, to } …]
+
+          const ranges = animationGroups.map((g) => ({
+            name: g.name,
+            from: g.from ?? g.fromFrame, // depending on Babylon version
+            to: g.to ?? g.toFrame,
+          }));
+
+          console.log("ranges", ranges);
+
+          animationGroups.forEach((group) => group.stop());
+
+          // vat wdith 264, vat height 2082 //ranges
+          // vat width 264, vat height 92.9990530303030  with animationranges
+
+          // const vatMat = new BABYLON.StandardMaterial("Standard for VAT Anim", scene);
+          const vatMat = mesh.material;
+          mesh.material = vatMat;
+          mesh.skeleton = skeletons[0];
+          const baker = new BABYLON.VertexAnimationBaker(scene, mesh);
+
+          // using single track, blender nla manual drag export
+          const animationRanges = [
+            { from: 0, to: 480 },
+            { from: 480, to: 890 },
+            { from: 890, to: 5500 },
+          ];
+
+          setTimeout(() => {
+            //bake at runtime
+            baker.bakeVertexData([{ from: 0, to: animationRanges[animationRanges.length - 1].to, name: "My animation" }]).then((vertexData) => {
+              //try to use helper to get multiple animation groups working
+              // baker.bakeVertexData(ranges).then((vertexData) => {
+
+              const finalRanges = ranges;
+
+              const manager = new BABYLON.BakedVertexAnimationManager(scene);
+              const vertexTexture = baker.textureFromBakedVertexData(vertexData);
+
+              manager.texture = vertexTexture;
+              manager.animationParameters = new BABYLON.Vector4(0, 30, 0, 240);
+
+              vatMat.bakedVertexAnimationManager = manager; // ⚠️ the missing link
+              mesh.material.bakedVertexAnimationManager = manager;
+              mesh.bakedVertexAnimationManager = manager;
+
+              manager.play = (name) => {
+                const r = finalRanges.find((r) => r.name === name);
+                if (!r) return;
+                manager.setAnimationParameters(r.from, r.to, 0, fps); // (start, end, offset, fps)
+                manager.time = 0;
+              };
+
+              scene.registerBeforeRender(() => {
+                // console.log("scene.getEngine().getDeltaTime()", scene.getEngine().getDeltaTime());
+                manager.time += scene.getEngine().getDeltaTime() / 1000.0;
+              });
+              console.log("manager", manager);
+              window.manager = manager;
+              console.log("window.manager", window.manager);
+              //bake vertex data to json
+              // we got the vertex data. let's serialize it:
+              const vertexDataJSON = baker.serializeBakedVertexDataToJSON(vertexData);
+              // and save it to a local JSON file
+              let a = document.createElement("a");
+              a.setAttribute("href", "data:text/plain;charset=utf-8," + encodeURIComponent(vertexDataJSON));
+              a.setAttribute("download", "vertexData.json");
+              a.click();
+
+              //   createTexture(vertexTexture);
+              function createTexture(texture) {
+                setTimeout(() => {
+                  const canvas = document.querySelector("canvas.preview");
+
+                  if (canvas) {
+                    // Step 2: Convert the canvas content to a data URL in PNG format
+                    const imageDataURL = canvas.toDataURL("image/png");
+
+                    // Step 3: Create a temporary anchor element to facilitate the download
+                    const downloadLink = document.createElement("a");
+                    downloadLink.href = imageDataURL;
+                    downloadLink.download = "canvas_snapshot.png"; // Specify the desired file name
+
+                    // Step 4: Programmatically trigger a click on the anchor to initiate the download
+                    downloadLink.click();
+                  } else {
+                    console.error('Canvas element with class "preview" not found.');
+                  }
+                }, 10000);
+              }
+            });
+          }, 500);
+
+          setTimeout(() => {
+            animationGroups.forEach((group) => group.start());
+          }, 1400);
+
+          //   mesh.numBoneInfluencers = 4;
+          //   mesh.parent = null;
+          //   //   mesh.position.y = this.defaultSpawnPosition.y;
+          //   //   mesh.position.x = this.defaultSpawnPosition.x;
+          //   //   mesh.position.z = this.defaultSpawnPosition.z;
+
+          mesh.scaling.x = 2;
+          mesh.scaling.y = 2;
+          mesh.scaling.z = 2;
+          //   mesh.isPickable = false;
+          //   //   mesh.scaling.x = 0.036;
+          //   //   mesh.scaling.y = 0.036;
+          //   //   mesh.scaling.z = 0.036;
+          //   //   mesh.rotation.x = BABYLON.Tools.ToRadians(90);
+
+          //   mesh.isPickable = false;
+          //   mesh.applyFog = false;
+          //   mesh.material._metallicF0Factor = 0;
+          //   mesh.material.environmentIntensity = 0.7;
+          //   mesh.material.directIntensity = 10.7;
+          //   this.mesh = mesh;
+          //   this.setupKeyboardControls(scene);
+
+          // importResult.animationGroups.forEach((g) => g.stop()); // or dispose()
+          // mesh.skeleton = null;
+          return mesh;
+        }
+
+        async function setupVatCharater() {
+          const vat = new BABYLON.MeshBuilder.CreateBox("vat", { size: 1 }, scene);
+          scene.animationPropertiesOverride = new BABYLON.AnimationPropertiesOverride();
+          scene.animationPropertiesOverride.enableBlending = false;
+          scene.animationPropertiesOverride.blendingSpeed = 0.0;
+          //   const { meshes, skeletons, animationGroups } = await BABYLON.SceneLoader.ImportMeshAsync(
+          //     "", // root url
+          //     "/assets/characters/enemy/npcs/npc1/", // folder
+          //     "npc1_run_fixed.glb",
+          //     //   "remotePlayerForVAT.glb",
+          //     scene
+          //   );
+
+          //   const vat = meshes[0];
+          setTimeout(async () => {
+            const vatToBake = await bakeVAT(scene, "/assets/characters/enemy/npcs/npc1/", "npc1.glb");
+          }, 4000);
+          const camera = setupCamera(scene, vat, engine);
+          camera.alpha = 8;
+          camera.beta = 1.0;
+          //   camera.radius = 7;
+          //   camera.preferredZoom = 7;
+          //   camera.shouldPrefferedZoom = false;
+          vat.position.y = 0.5;
+          vat.isPickable = false;
+          vat.isVisible = false;
+          return camera;
+        }
+
+        // Add relative range slider event listeners
+        document.getElementById("relative_range").addEventListener("input", (e) => {
+          document.getElementById("relative_range_value").textContent = e.target.value;
+          document.getElementById("relative_range_exact").value = e.target.value;
+          updateRelativeRange();
+        });
+
+        document.getElementById("relative_range_exact").addEventListener("change", (e) => {
+          const value = parseFloat(e.target.value);
+          document.getElementById("relative_range").value = value;
+          document.getElementById("relative_range_value").textContent = value;
+          e.target.value = value;
+          updateRelativeRange();
+        });
+
+        // Update relative range when start frame changes
+        document.getElementById("v4x").addEventListener("input", updateRelativeRange);
+        document.getElementById("v4x_exact").addEventListener("change", updateRelativeRange);
+
+        function updateRelativeRange() {
+          //   const startFrame = parseFloat(document.getElementById("v4x").value);
+          const rangeSizeStart = parseFloat(document.getElementById("relative_range").value);
+          const endFrame = rangeSizeStart + 1;
+
+          document.getElementById("relative_start").textContent = rangeSizeStart;
+          document.getElementById("relative_end").textContent = endFrame;
+          const z = parseFloat(document.getElementById("v4z").value);
+          const w = parseFloat(document.getElementById("v4w").value);
+          window.manager.animationParameters = new BABYLON.Vector4(rangeSizeStart, endFrame, z, w);
+          //   updateAnimationParameters()
+        }
+      });
+    </script>
+  </body>
+</html>

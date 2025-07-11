@@ -1,0 +1,268 @@
+.App {
+  display: block;
+  /* 
+    3 rows: 
+      1) Profile
+      2) Main content (left = message, right = system)
+      3) New message
+  */
+  grid-template-rows: auto 1fr auto;
+  /* 2 columns: left for chat, right for system */
+  grid-template-columns: 2fr 1fr;
+
+  height: 100vh; /* fill viewport height */
+  width: clamp(300px, 100%, 1200px);
+  margin: 0 auto;
+  animation: fadeInUp 0.6s ease-out;
+  opacity: 1;
+
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.skill-bar {
+  display: none;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ----- Profile (Row 1, spans both columns) ----- */
+.profile {
+  grid-column: 1 / 3;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border-bottom: 1px solid var(--theme-color);
+}
+
+.profile h1 {
+  margin-right: auto; /* pushes name/edit form to the right */
+}
+
+.profile form {
+  display: flex;
+  flex-grow: 1;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 300px;
+}
+
+.profile form input {
+  background-color: var(--textbox-color);
+}
+
+/* ----- Chat Messages (Row 2, Col 1) ----- */
+.message {
+  grid-row: 2 / 3;
+  grid-column: 1 / 2;
+
+  /* Ensure this section scrolls if content is long */
+  overflow-y: auto;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.message h1 {
+  margin-right: 0.5rem;
+}
+
+/* ----- System Panel (Row 2, Col 2) ----- */
+.system {
+  grid-row: 2 / 3;
+  grid-column: 2 / 3;
+
+  /* Also scroll independently if needed */
+  overflow-y: auto;
+  padding: 1rem;
+  border-left: 1px solid var(--theme-color);
+  white-space: pre-wrap;
+  font-family: monospace;
+}
+
+/* ----- New Message (Row 3, spans columns 1-2) ----- */
+.new-message {
+  grid-column: 1 / 3;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem;
+  position: absolute;
+  bottom: 0;
+
+  /* border-top: 1px solid var(--theme-color); */
+}
+
+.new-message form {
+  display: flex;
+  flex-direction: row;
+  gap: 0.75rem;
+  align-items: center;
+  bottom: 20px;
+  left: 20px;
+  width: 300px;
+  position: absolute;
+}
+
+.new-message form h3 {
+  margin-bottom: 0.25rem;
+}
+
+/* Distinct background for the textarea */
+.new-message form textarea {
+  font-family: inherit;
+  font-weight: 400;
+  font-size: 1rem;
+  resize: none;
+  height: 36px;
+  min-height: unset;
+  padding: 8px;
+  background-color: var(--textbox-color);
+  color: inherit;
+  flex-grow: 1;
+}
+
+.new-message .message-prefix {
+  color: var(--theme-color);
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+@media (prefers-color-scheme: dark) {
+  .new-message form textarea {
+    box-shadow: 0 0 0 1px #17492b;
+  }
+}
+
+/* Add new styles for the floating message box */
+.floating-messages {
+  position: fixed;
+  bottom: 73px;
+  left: 20px;
+  width: 300px;
+  height: 200px;
+  background-color: rgba(0, 0, 0, 0.8);
+  border-radius: 8px;
+  border: 1px solid var(--theme-color);
+  display: flex;
+  flex-direction: column;
+  z-index: 1000;
+}
+
+.floating-messages-header {
+  padding: 10px;
+  border-bottom: 1px solid var(--theme-color);
+  font-weight: bold;
+}
+
+.floating-messages-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.floating-messages-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.floating-messages-content::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.floating-messages-content::-webkit-scrollbar-thumb {
+  background: var(--theme-color);
+  border-radius: 3px;
+}
+
+.message-item {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.message-sender {
+  font-weight: bold;
+  margin-bottom: 4px;
+  display: inline-block;
+}
+
+.message-text {
+  word-break: break-word;
+  display: inline-block;
+}
+
+/* Make specific elements within .App clickable again */
+.App .floating-messages,
+.App .new-message,
+.App .profile {
+  pointer-events: auto;
+}
+
+/* If you have buttons or other interactive elements, make them clickable too */
+.App button,
+.App input,
+.App textarea {
+  pointer-events: auto;
+}
+
+.chat-toggle-button::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  /* background: linear-gradient(
+      rgba(0, 0, 0, 0.918),
+      rgba(0, 0, 0, 0.952),
+      rgba(0, 0, 0, 0.974)
+    ),
+    url("/assets/util/ui/backgrounds/test5.png"); */
+  background-position-x: 0%, 0%;
+  background-position-y: 0%, 0%;
+  background-repeat: repeat, repeat;
+  background-size: auto, auto;
+  /* background: linear-gradient(
+      rgba(0, 0, 0, 0.218),
+      rgba(0, 0, 0, 0.752),
+      rgba(0, 0, 0, 0.974)
+    ),
+    url("/assets/util/ui/backgrounds/test5.png"); */
+  background-repeat: repeat-x;
+  background-position: bottom;
+  background-size: contain;
+  opacity: 0.9;
+  /* border-radius: 20px; */
+  background: url("/assets/util/ui/backgrounds/painterly button large.png");
+  background-size: contain;
+  /* backdrop-filter: blur(10px); */
+  background-size: 72px;
+  background-position: center;
+  z-index: -1;
+}
+
+.chat-toggle-button {
+  color: white;
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  background-color: rgba(0, 0, 0, 0.5);
+}

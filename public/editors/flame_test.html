@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { 
+      margin: 0; 
+      overflow: hidden;
+      background: #000;
+    }
+    canvas { 
+      display: block; 
+    }
+    #effectSelector {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      z-index: 100;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      padding: 10px;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div id="effectSelector">
+    <select id="spellType" onchange="updateSpellEffect(this.value)">
+      <option value="fireball">Bright Wizard - Fireball</option>
+      <option value="inferno">Bright Wizard - Inferno</option>
+      <option value="conflag">Bright Wizard - Conflagration</option>
+    </select>
+  </div>
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lil-gui@0.17.0/dist/lil-gui.umd.min.js"></script>
+  <script>
+    // Scene setup
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(new THREE.Color(0x000004));
+    document.body.appendChild(renderer.domElement);
+
+    // Enhanced vertex shader with turbulence
+    const vertexShader = `
+      varying vec2 vUv;
+      varying vec3 vPosition;
+      
+      void main() {
+        vUv = uv;
+        vPosition = position;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `;
+
+    // Enhanced fragment shader with multiple effect support
+    const fragmentShader = `
+      uniform float time;
+      uniform float noiseScale;
+      uniform float noiseSpeed;
+      uniform float flameHeight;
+      uniform float flameWidth;
+      uniform vec3 baseColor;
+      uniform vec3 tipColor;
+      uniform float intensity;
+      uniform float turbulence;
+      uniform float pulseSpeed;
+      uniform float pulseIntensity;
+      uniform int effectType;
+      
+      varying vec2 vUv;
+      varying vec3 vPosition;
+      
+      // Improved noise function
+      float random(vec2 st) {
+        return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+      }
+      
+      float noise(vec2 st) {
+        vec2 i = floor(st);
+        vec2 f = fract(st);
+        float a = random(i);
+        float b = random(i + vec2(1.0, 0.0));
+        float c = random(i + vec2(0.0, 1.0));
+        float d = random(i + vec2(1.0, 1.0));
+        vec2 u = f * f * (3.0 - 2.0 * f);
+        return mix(a, b, u.x) + (c - a)* u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+      }
+      
+      float fbm(vec2 st) {
+        float value = 0.0;
+        float amplitude = 0.5;
+        float frequency = 0.0;
+        for(int i = 0; i < 5; i++) {
+          value += amplitude * noise(st);
+          st *= 2.0;
+          amplitude *= 0.5;
+        }
+        return value;
+      }
+
+      // Fireball effect
+      vec4 fireballEffect() {
+        vec2 st = vUv * noiseScale;
+        st.y -= time * noiseSpeed;
+        float noise = fbm(st) * turbulence;
+        float flame = 1.0 - pow(vUv.y, flameHeight);
+        flame *= 1.0 - pow(abs(vUv.x - 0.5) * flameWidth, 0.5);
+        flame += noise * 0.3;
+        vec3 color = mix(baseColor, tipColor, pow(flame, 2.0));
+        color = mix(vec3(0.0), color, flame);
+        return vec4(color * intensity, flame);
+      }
+
+      // Inferno effect
+      vec4 infernoEffect() {
+        vec2 st = vUv * noiseScale * 2.0;
+        st.y -= time * noiseSpeed * 1.5;
+        float noise = fbm(st) * turbulence * 1.5;
+        
+        // Spiral pattern
+        float angle = atan(vUv.y - 0.5, vUv.x - 0.5);
+        float spiral = sin(angle * 3.0 + time * 2.0) * 0.5 + 0.5;
+        
+        float flame = 1.0 - length(vec2(vUv.x - 0.5, vUv.y - 0.5)) * 2.0;
+        flame += spiral * 0.3 + noise * 0.4;
+        
+        vec3 color = mix(baseColor * 1.2, tipColor * 1.5, pow(flame, 1.5));
+        return vec4(color * intensity, flame);
+      }
+
+      // Conflagration effect
+      vec4 conflagrationEffect() {
+        vec2 st = vUv * noiseScale;
+        st += sin(time * pulseSpeed + vUv.y * 10.0) * pulseIntensity;
+        
+        float noise = fbm(st + time * 0.5) * turbulence;
+        float waves = sin(vUv.y * 20.0 + time * 3.0) * 0.1;
+        
+        float flame = 1.0 - pow(vUv.y, flameHeight);
+        flame *= 1.0 - pow(abs(vUv.x - 0.5) * flameWidth, 0.5);
+        flame += noise * 0.4 + waves;
+        
+        vec3 pulseColor = mix(baseColor, tipColor, sin(time * pulseSpeed) * 0.5 + 0.5);
+        vec3 color = mix(pulseColor, tipColor * 1.3, pow(flame, 1.5));
+        
+        return vec4(color * intensity, flame);
+      }
+      
+      void main() {
+        vec4 finalColor;
+        
+        if (effectType == 0) {
+          finalColor = fireballEffect();
+        } else if (effectType == 1) {
+          finalColor = infernoEffect();
+        } else {
+          finalColor = conflagrationEffect();
+        }
+        
+        finalColor.a *= smoothstep(0.0, 0.2, finalColor.a);
+        gl_FragColor = finalColor;
+      }
+    `;
+
+    // Enhanced parameters with effect-specific settings
+    const params = {
+      noiseScale: 3.0,
+      noiseSpeed: 0.5,
+      flameHeight: 0.5,
+      flameWidth: 2.0,
+      baseColor: [1.0, 0.5, 0.2],
+      tipColor: [1.0, 0.8, 0.3],
+      intensity: 1.0,
+      turbulence: 1.0,
+      pulseSpeed: 2.0,
+      pulseIntensity: 0.2,
+      effectType: 0
+    };
+
+    const spellMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        time: { value: 0.0 },
+        noiseScale: { value: params.noiseScale },
+        noiseSpeed: { value: params.noiseSpeed },
+        flameHeight: { value: params.flameHeight },
+        flameWidth: { value: params.flameWidth },
+        baseColor: { value: new THREE.Vector3(...params.baseColor) },
+        tipColor: { value: new THREE.Vector3(...params.tipColor) },
+        intensity: { value: params.intensity },
+        turbulence: { value: params.turbulence },
+        pulseSpeed: { value: params.pulseSpeed },
+        pulseIntensity: { value: params.pulseIntensity },
+        effectType: { value: params.effectType }
+      },
+      vertexShader: vertexShader,
+      fragmentShader: fragmentShader,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+
+    const spellGeometry = new THREE.PlaneGeometry(2, 3, 32, 32);
+    const spellEffect = new THREE.Mesh(spellGeometry, spellMaterial);
+    scene.add(spellEffect);
+
+    camera.position.z = 5;
+
+    // Effect presets
+    const presets = {
+      fireball: {
+        baseColor: [1.0, 0.5, 0.2],
+        tipColor: [1.0, 0.8, 0.3],
+        noiseScale: 3.0,
+        noiseSpeed: 0.5,
+        turbulence: 1.0,
+        effectType: 0
+      },
+      inferno: {
+        baseColor: [1.0, 0.3, 0.1],
+        tipColor: [1.0, 0.6, 0.2],
+        noiseScale: 4.0,
+        noiseSpeed: 0.8,
+        turbulence: 1.5,
+        effectType: 1
+      },
+      conflag: {
+        baseColor: [0.8, 0.3, 0.1],
+        tipColor: [1.0, 0.7, 0.2],
+        noiseScale: 2.5,
+        noiseSpeed: 0.6,
+        turbulence: 1.2,
+        effectType: 2
+      }
+    };
+
+    function updateSpellEffect(type) {
+      const preset = presets[type];
+      Object.keys(preset).forEach(key => {
+        params[key] = preset[key];
+        if (Array.isArray(preset[key])) {
+          spellMaterial.uniforms[key].value = new THREE.Vector3(...preset[key]);
+        } else {
+          spellMaterial.uniforms[key].value = preset[key];
+        }
+      });
+    }
+
+    function initGUI() {
+      const gui = new lil.GUI({ title: "Spell Effects" });
+      
+      const shapeFolder = gui.addFolder('Shape');
+      shapeFolder.add(params, 'flameHeight', 0.1, 2.0).onChange(value => {
+        spellMaterial.uniforms.flameHeight.value = value;
+      });
+      shapeFolder.add(params, 'flameWidth', 0.5, 5.0).onChange(value => {
+        spellMaterial.uniforms.flameWidth.value = value;
+      });
+
+      const animationFolder = gui.addFolder('Animation');
+      animationFolder.add(params, 'noiseScale', 0.1, 10.0).onChange(value => {
+        spellMaterial.uniforms.noiseScale.value = value;
+      });
+      animationFolder.add(params, 'noiseSpeed', 0.0, 2.0).onChange(value => {
+        spellMaterial.uniforms.noiseSpeed.value = value;
+      });
+      animationFolder.add(params, 'turbulence', 0.0, 2.0).onChange(value => {
+        spellMaterial.uniforms.turbulence.value = value;
+      });
+      animationFolder.add(params, 'pulseSpeed', 0.0, 5.0).onChange(value => {
+        spellMaterial.uniforms.pulseSpeed.value = value;
+      });
+      animationFolder.add(params, 'pulseIntensity', 0.0, 1.0).onChange(value => {
+        spellMaterial.uniforms.pulseIntensity.value = value;
+      });
+
+      const colorFolder = gui.addFolder('Color');
+      colorFolder.addColor(params, 'baseColor').onChange(value => {
+        spellMaterial.uniforms.baseColor.value = new THREE.Vector3(...value);
+      });
+      colorFolder.addColor(params, 'tipColor').onChange(value => {
+        spellMaterial.uniforms.tipColor.value = new THREE.Vector3(...value);
+      });
+      colorFolder.add(params, 'intensity', 0.0, 2.0).onChange(value => {
+        spellMaterial.uniforms.intensity.value = value;
+      });
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      spellMaterial.uniforms.time.value += 0.016;
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', onWindowResize, false);
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    initGUI();
+    animate();
+  </script>
+</body>
+</html>

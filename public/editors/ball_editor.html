@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dark Magic Sphere</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; }
+        canvas { width: 100%; height: 100% }
+    </style>
+</head>
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lil-gui@0.17.0/dist/lil-gui.umd.min.js"></script>
+    <script>
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        const sphereGeometry = new THREE.SphereGeometry(1, 64, 64);
+        
+        const darkMagicVertexShader = `
+            varying vec2 vUv;
+            varying vec3 vPosition;
+            varying vec3 vNormal;
+            varying vec3 vViewPosition;
+            
+            void main() {
+                vUv = uv;
+                vPosition = position;
+                vNormal = normalize(normalMatrix * normal);
+                vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                vViewPosition = -mvPosition.xyz;
+                gl_Position = projectionMatrix * mvPosition;
+            }
+        `;
+
+        const darkMagicFragmentShader = `
+            uniform float time;
+            uniform vec3 darkCore;
+            uniform vec3 outerAura;
+            uniform vec3 energyColor;
+            varying vec2 vUv;
+            varying vec3 vPosition;
+            varying vec3 vNormal;
+            varying vec3 vViewPosition;
+
+            const float PI = 3.14159265359;
+
+            float random(vec2 st) {
+                return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+            }
+
+            float noise(vec2 st) {
+                vec2 i = floor(st);
+                vec2 f = fract(st);
+                
+                float a = random(i);
+                float b = random(i + vec2(1.0, 0.0));
+                float c = random(i + vec2(0.0, 1.0));
+                float d = random(i + vec2(1.0, 1.0));
+
+                vec2 u = f * f * (3.0 - 2.0 * f);
+
+                return mix(a, b, u.x) +
+                        (c - a)* u.y * (1.0 - u.x) +
+                        (d - b) * u.x * u.y;
+            }
+
+            float pattern(vec3 pos, float time) {
+                float scale = 5.0;
+                float pattern1 = noise(vec2(pos.x * scale + time, pos.y * scale - time));
+                float pattern2 = noise(vec2(pos.y * scale - time * 0.5, pos.z * scale + time * 0.5));
+                return (pattern1 + pattern2) * 0.5;
+            }
+
+            void main() {
+                // Fresnel effect
+                vec3 viewDirection = normalize(vViewPosition);
+                float fresnel = pow(1.0 - max(0.0, dot(normalize(vNormal), viewDirection)), 3.0);
+
+                // Energy patterns
+                float energyPattern = pattern(vPosition, time);
+                
+                // Pulse wave
+                float pulse = sin(time * 2.0) * 0.5 + 0.5;
+                
+                // Core colors
+                vec3 color = mix(darkCore, outerAura, fresnel);
+                color += energyColor * energyPattern * 0.3;
+                color += energyColor * pulse * 0.2;
+                
+                // Depth effect
+                float depth = dot(normalize(vNormal), viewDirection);
+                color *= mix(0.5, 1.0, depth);
+                
+                // Rim lighting
+                float rim = pow(1.0 - max(0.0, dot(viewDirection, vNormal)), 3.0);
+                color += energyColor * rim * 0.5;
+                
+                // Energy swirls
+                float swirl = sin(vPosition.x * 10.0 + vPosition.y * 10.0 + time * 2.0) * 0.5 + 0.5;
+                color += energyColor * swirl * 0.1;
+                
+                // Final adjustments
+                color = pow(color, vec3(0.8));
+                float alpha = mix(0.6, 1.0, fresnel + energyPattern);
+                
+                gl_FragColor = vec4(color, alpha);
+            }
+        `;
+
+        const uniforms = {
+            time: { value: 0 },
+            pulseSpeed: { value: 2.0 },
+            energyIntensity: { value: 0.3 },
+            rotationSpeed: { value: 0.003 },
+            darkCore: { value: new THREE.Color(0.5, 0.0, 1.0) },
+            outerAura: { value: new THREE.Color(0.8, 0.0, 0.9) },
+            energyColor: { value: new THREE.Color(1.0, 0.2, 1.0) }
+        };
+
+        const shaderMaterial = new THREE.ShaderMaterial({
+            uniforms: uniforms,
+            vertexShader: darkMagicVertexShader,
+            fragmentShader: darkMagicFragmentShader,
+            transparent: true,
+            blending: THREE.AdditiveBlending,
+            side: THREE.DoubleSide
+        });
+
+        const sphere = new THREE.Mesh(sphereGeometry, shaderMaterial);
+        scene.add(sphere);
+
+        camera.position.z = 3;
+
+        // Add subtle rotation
+        sphere.rotation.x = 0.2;
+        sphere.rotation.y = 0.3;
+
+        // Add GUI controls
+        const gui = new lil.GUI({ title: "Spell Effects" });
+        const params = {
+            pulseSpeed: uniforms.pulseSpeed.value,
+            energyIntensity: uniforms.energyIntensity.value,
+            rotationSpeed: uniforms.rotationSpeed.value,
+            darkCore: [127, 0, 255],
+            outerAura: [204, 0, 230],
+            energyColor: [255, 51, 255]
+        };
+
+        gui.add(params, 'pulseSpeed', 0, 5).onChange(value => {
+            uniforms.pulseSpeed.value = value;
+        });
+        gui.add(params, 'energyIntensity', 0, 1).onChange(value => {
+            uniforms.energyIntensity.value = value;
+        });
+        gui.add(params, 'rotationSpeed', 0, 0.01).onChange(value => {
+            uniforms.rotationSpeed.value = value;
+        });
+        
+        gui.addColor(params, 'darkCore').onChange(value => {
+            uniforms.darkCore.value.setRGB(value[0]/255, value[1]/255, value[2]/255);
+        });
+        gui.addColor(params, 'outerAura').onChange(value => {
+            uniforms.outerAura.value.setRGB(value[0]/255, value[1]/255, value[2]/255);
+        });
+        gui.addColor(params, 'energyColor').onChange(value => {
+            uniforms.energyColor.value.setRGB(value[0]/255, value[1]/255, value[2]/255);
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+            uniforms.time.value += 0.016;
+            
+            // Gentle floating rotation
+            sphere.rotation.y += uniforms.rotationSpeed.value;
+            sphere.rotation.x += uniforms.rotationSpeed.value / 3;
+            
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', onWindowResize, false);
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        animate();
+    </script>
+</body>
+</html>

@@ -1,0 +1,123 @@
+{
+    "systems": [
+        {
+            "name": "explosionMinimalSword",
+            "id": "explosionMinimalSword",
+            "capacity": 40,
+            "emitter": [
+                0,
+                0,
+                0
+            ],
+            "particleEmitterType": {
+                "type": "ConeParticleEmitter",
+                "radius": 0.1,
+                "angle": 0.7853981633974483,
+                "directionRandomizer": 0
+            },
+            "textureName": "explosion/FlashParticle.png",
+            "invertY": true,
+            "animations": [],
+            "beginAnimationOnStart": false,
+            "beginAnimationFrom": 0,
+            "beginAnimationTo": 60,
+            "beginAnimationLoop": false,
+            "startDelay": 0,
+            "renderingGroupId": 2,
+            "isBillboardBased": true,
+            "billboardMode": 7,
+            "minAngularSpeed": 0,
+            "maxAngularSpeed": 0,
+            "minSize": 0.1,
+            "maxSize": 0.1,
+            "minScaleX": 10,
+            "maxScaleX": 20,
+            "minScaleY": 70,
+            "maxScaleY": 100,
+            "minEmitPower": 0,
+            "maxEmitPower": 0,
+            "minLifeTime": 0.2,
+            "maxLifeTime": 0.4,
+            "emitRate": 100,
+            "gravity": [
+                0,
+                0,
+                0
+            ],
+            "noiseStrength": [
+                10,
+                10,
+                10
+            ],
+            "color1": [
+                1,
+                1,
+                1,
+                1
+            ],
+            "color2": [
+                1,
+                1,
+                1,
+                1
+            ],
+            "colorDead": [
+                1,
+                1,
+                1,
+                0
+            ],
+            "updateSpeed": 0.016666666666666666,
+            "targetStopDuration": 0.1,
+            "blendMode": 2,
+            "preWarmCycles": 0,
+            "preWarmStepOffset": 1,
+            "minInitialRotation": -0.78539816,
+            "maxInitialRotation": 0.78539816,
+            "startSpriteCellID": 0,
+            "endSpriteCellID": 0,
+            "spriteCellChangeSpeed": 1,
+            "spriteCellWidth": 0,
+            "spriteCellHeight": 0,
+            "spriteRandomStartCell": false,
+            "isAnimationSheetEnabled": false,
+            "colorGradients": [
+                {
+                    "gradient": 0,
+                    "color1": [
+                        1,
+                        0.896,
+                        0,
+                        1
+                    ]
+                },
+                {
+                    "gradient": 0.4,
+                    "color1": [
+                        0.7547,
+                        0.1219,
+                        0.0391,
+                        1
+                    ]
+                },
+                {
+                    "gradient": 0.8,
+                    "color1": [
+                        0.3679,
+                        0.0721,
+                        0.0295,
+                        0
+                    ]
+                }
+            ],
+            "textureMask": [
+                1,
+                1,
+                1,
+                1
+            ],
+            "customShader": null,
+            "preventAutoStart": true
+        }
+    ]
+}

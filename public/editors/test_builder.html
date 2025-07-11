@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Babylon.js Interior Level Builder</title>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <style>
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+      }
+      canvas {
+        width: 100%;
+        height: 100%;
+        touch-action: none;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="renderCanvas"></canvas>
+    <script>
+      // Create engine and scene
+      var canvas = document.getElementById("renderCanvas");
+      var engine = new BABYLON.Engine(canvas, true);
+      var scene = new BABYLON.Scene(engine);
+      scene.clearColor = new BABYLON.Color3(0.8, 0.8, 0.8);
+
+      // Set up a basic camera (an arc-rotate camera works nicely for editing)
+      var camera = new BABYLON.ArcRotateCamera("camera", BABYLON.Tools.ToRadians(45), BABYLON.Tools.ToRadians(60), 15, new BABYLON.Vector3(0, 0, 0), scene);
+      camera.attachControl(canvas, true);
+
+      // Add a hemispheric light for general illumination
+      var light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(1, 1, 0), scene);
+
+      // ******************************************************************
+      // Materials & MultiMaterial Setup for separate wall and floor textures
+      // ******************************************************************
+
+      // Create two basic materials—for a real project, replace the diffuseColor with textures
+      var wallMaterial = new BABYLON.StandardMaterial("wallMat", scene);
+      wallMaterial.diffuseColor = new BABYLON.Color3(1, 1, 1);
+      // wallMaterial.diffuseTexture = new BABYLON.Texture("wallTexture.png", scene);
+
+      var floorMaterial = new BABYLON.StandardMaterial("floorMat", scene);
+      floorMaterial.diffuseColor = new BABYLON.Color3(0.8, 0.8, 0.8);
+      // floorMaterial.diffuseTexture = new BABYLON.Texture("floorTexture.png", scene);
+
+      // Use a MultiMaterial so that different submeshes can use different materials
+      var multiMat = new BABYLON.MultiMaterial("multiMat", scene);
+      multiMat.subMaterials.push(wallMaterial); // index 0 for wall faces
+      multiMat.subMaterials.push(floorMaterial); // index 1 for floor/ceiling faces
+
+      // ******************************************************************
+      // Grid Data and Geometry Generation
+      // ******************************************************************
+
+      // We store each "cell" (a 1×1×1 block) in a dictionary keyed by "x,y,z"
+      var levelCells = {};
+      function cellKey(x, y, z) {
+        return x + "," + y + "," + z;
+      }
+      function addCell(x, y, z) {
+        var key = cellKey(x, y, z);
+        if (!levelCells[key]) {
+          levelCells[key] = true;
+          updateLevelMesh();
+        }
+      }
+
+      // Start with one cell at (0,0,0)
+      addCell(0, 0, 0);
+
+      // This mesh will hold the continuously rebuilt level
+      var levelMesh = new BABYLON.Mesh("levelMesh", scene);
+      levelMesh.isPickable = true;
+      levelMesh.material = multiMat;
+
+      // The updateLevelMesh() function rebuilds the level geometry from levelCells.
+      // It only adds a face if there’s no adjacent cell in that direction.
+      // Each face is tagged as either "wall" or "floor" (which we also use for ceiling).
+      function updateLevelMesh() {
+        var positions = [];
+        var indices = [];
+        var normals = [];
+        var uvs = [];
+
+        // To later assign different materials to different groups of faces, we record segments:
+        // Each time we add a face (6 indices) we record its material index (0 for wall, 1 for floor/ceiling),
+        // its starting index within the overall indices array, and the count (which will be 6).
+        var faceSegments = [];
+        var vertexCount = 0;
+
+        // Add a face with the given 4 vertices, a constant normal, and a tag for UV mapping
+        function addFace(facePositions, normal, uvType) {
+          // Determine which material index to use: floor/ceiling uses index 1; walls use index 0.
+          var materialIndex = uvType === "floor" ? 1 : 0;
+
+          // For each face we use a simple UV layout (0,0) to (1,1). Adjust these if you wish to
+          // scale or position texture coordinates differently.
+          var faceUVs = [0, 0, 1, 0, 1, 1, 0, 1];
+
+          // Add vertices, normals, and UVs for the 4 corners
+          for (var i = 0; i < 4; i++) {
+            positions.push(facePositions[i].x, facePositions[i].y, facePositions[i].z);
+            normals.push(normal.x, normal.y, normal.z);
+            uvs.push(faceUVs[i * 2], faceUVs[i * 2 + 1]);
+          }
+          // Define two triangles for the face (vertices: 0-1-2 and 0-2-3)
+          indices.push(vertexCount, vertexCount + 1, vertexCount + 2);
+          indices.push(vertexCount, vertexCount + 2, vertexCount + 3);
+
+          // Record this face’s segment (6 indices).
+          faceSegments.push({ materialIndex: materialIndex, indexStart: indices.length - 6, indexCount: 6 });
+
+          vertexCount += 4;
+        }
+
+        // Helper: check if a cell exists at coordinates (x,y,z)
+        function cellExists(x, y, z) {
+          return levelCells[cellKey(x, y, z)];
+        }
+
+        // For every cell in our grid, generate faces only where there is no neighbor.
+        // (Each cell is defined from (x,y,z) to (x+1, y+1, z+1).)
+        for (var key in levelCells) {
+          var parts = key.split(",");
+          var x = parseInt(parts[0]),
+            y = parseInt(parts[1]),
+            z = parseInt(parts[2]);
+
+          // FRONT (positive Z)
+          if (!cellExists(x, y, z + 1)) {
+            addFace([new BABYLON.Vector3(x, y, z + 1), new BABYLON.Vector3(x + 1, y, z + 1), new BABYLON.Vector3(x + 1, y + 1, z + 1), new BABYLON.Vector3(x, y + 1, z + 1)], new BABYLON.Vector3(0, 0, 1), "wall");
+          }
+          // BACK (negative Z)
+          if (!cellExists(x, y, z - 1)) {
+            addFace([new BABYLON.Vector3(x + 1, y, z), new BABYLON.Vector3(x, y, z), new BABYLON.Vector3(x, y + 1, z), new BABYLON.Vector3(x + 1, y + 1, z)], new BABYLON.Vector3(0, 0, -1), "wall");
+          }
+          // RIGHT (positive X)
+          if (!cellExists(x + 1, y, z)) {
+            addFace([new BABYLON.Vector3(x + 1, y, z + 1), new BABYLON.Vector3(x + 1, y, z), new BABYLON.Vector3(x + 1, y + 1, z), new BABYLON.Vector3(x + 1, y + 1, z + 1)], new BABYLON.Vector3(1, 0, 0), "wall");
+          }
+          // LEFT (negative X)
+          if (!cellExists(x - 1, y, z)) {
+            addFace([new BABYLON.Vector3(x, y, z), new BABYLON.Vector3(x, y, z + 1), new BABYLON.Vector3(x, y + 1, z + 1), new BABYLON.Vector3(x, y + 1, z)], new BABYLON.Vector3(-1, 0, 0), "wall");
+          }
+          // TOP (positive Y) – this will be treated as a floor/ceiling surface for UV purposes
+          if (!cellExists(x, y + 1, z)) {
+            addFace([new BABYLON.Vector3(x, y + 1, z + 1), new BABYLON.Vector3(x + 1, y + 1, z + 1), new BABYLON.Vector3(x + 1, y + 1, z), new BABYLON.Vector3(x, y + 1, z)], new BABYLON.Vector3(0, 1, 0), "floor");
+          }
+          // BOTTOM (negative Y) – also uses floor UVs
+          if (!cellExists(x, y - 1, z)) {
+            addFace([new BABYLON.Vector3(x, y, z), new BABYLON.Vector3(x + 1, y, z), new BABYLON.Vector3(x + 1, y, z + 1), new BABYLON.Vector3(x, y, z + 1)], new BABYLON.Vector3(0, -1, 0), "floor");
+          }
+        }
+
+        // Build the custom mesh from our vertex data.
+        var vertexData = new BABYLON.VertexData();
+        vertexData.positions = positions;
+        vertexData.indices = indices;
+        vertexData.normals = normals;
+        vertexData.uvs = uvs;
+        vertexData.applyToMesh(levelMesh, true);
+
+        // Assign submeshes so that different face groups use the correct material.
+        levelMesh.subMeshes = [];
+        for (var i = 0; i < faceSegments.length; i++) {
+          var seg = faceSegments[i];
+          BABYLON.SubMesh.AddToMesh(seg.materialIndex, seg.indexStart, seg.indexCount, 0, positions.length / 3, levelMesh);
+        }
+      }
+
+      // ******************************************************************
+      // Picking and Extrusion
+      // ******************************************************************
+
+      // On pointer (mouse) click, use Babylon’s picking to find the clicked face.
+      // Then, using the hit point and face normal, add a new cell in that direction.
+      scene.onPointerObservable.add((pointerInfo) => {
+        if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERDOWN) {
+          var pickInfo = pointerInfo.pickInfo;
+          if (pickInfo.hit) {
+            var hitPoint = pickInfo.pickedPoint;
+            // Babylon’s pickInfo can supply the face normal if the mesh has per-face data.
+            var faceNormal = pickInfo.getNormal(true);
+            if (faceNormal) {
+              // Compute new cell coordinates.
+              // By offsetting the hit point half a unit in the direction of the face normal and then flooring,
+              // we determine the grid cell to "extrude" into.
+              var newX = Math.floor(hitPoint.x + faceNormal.x * 0.5);
+              var newY = Math.floor(hitPoint.y + faceNormal.y * 0.5);
+              var newZ = Math.floor(hitPoint.z + faceNormal.z * 0.5);
+              addCell(newX, newY, newZ);
+            }
+          }
+        }
+      });
+
+      // ******************************************************************
+      // Run the Scene
+      // ******************************************************************
+      engine.runRenderLoop(function () {
+        scene.render();
+      });
+      window.addEventListener("resize", function () {
+        engine.resize();
+      });
+    </script>
+  </body>
+</html>

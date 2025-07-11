@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Simple 3D WFC Level Editor</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        #generateBtn {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            padding: 10px 20px;
+            background: #fff;
+            border: 1px solid #000;
+            cursor: pointer;
+            z-index: 1;
+        }
+    </style>
+</head>
+<body>
+    <button id="generateBtn">Clear Terrain</button>
+    
+    <!-- Load Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- Load OrbitControls from a reliable CDN -->
+    <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <script>
+        // Set up the scene, camera, and renderer
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({antialias: true});
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Add orbit controls
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true; // Optional: Adds a damping effect
+
+        // Grid parameters
+        const gridSize = 5;
+        const cellSize = 1;
+        const grid = [];
+
+        // Materials
+        const terrainMaterial = new THREE.MeshLambertMaterial({color: 0x8B4513}); // Brown for terrain
+        const waterMaterial = new THREE.MeshLambertMaterial({
+            color: 0x0077be,
+            transparent: true,
+            opacity: 0.7
+        }); // Blue transparent for water
+        const emptyMaterial = new THREE.MeshBasicMaterial({color: 0x000000, visible: false});
+
+        // Add a tile type selector with better styling
+        const tileTypeSelector = document.createElement('select');
+        tileTypeSelector.id = 'tileType';
+        tileTypeSelector.style.position = 'absolute';
+        tileTypeSelector.style.top = '50px';
+        tileTypeSelector.style.left = '10px';
+        tileTypeSelector.style.zIndex = '1';
+        tileTypeSelector.style.padding = '5px 10px';
+        tileTypeSelector.style.cursor = 'pointer';
+        tileTypeSelector.style.background = '#fff';
+        tileTypeSelector.style.border = '1px solid #000';
+        tileTypeSelector.style.borderRadius = '4px';
+        
+        const options = [
+            { value: 'terrain', text: 'Terrain' },
+            { value: 'water', text: 'Water' }
+        ];
+        
+        options.forEach(option => {
+            const opt = document.createElement('option');
+            opt.value = option.value;
+            opt.text = option.text;
+            tileTypeSelector.appendChild(opt);
+        });
+        
+        document.body.appendChild(tileTypeSelector);
+
+        // Move the selector above the canvas
+        renderer.domElement.style.position = 'absolute';
+        renderer.domElement.style.zIndex = '0';
+
+        // Add lighting for better 3D visibility
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
+        directionalLight.position.set(10, 20, 10);
+        scene.add(directionalLight);
+
+        // Raycaster for mouse interaction
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        // Store references to cubes for interaction
+        const cubeRefs = new Map(); // To store position -> cube reference
+
+        // Modified grid structure
+        const EMPTY = 0, TERRAIN = 1, WATER = 2;
+        for (let x = 0; x < gridSize; x++) {
+            grid[x] = [];
+            for (let y = 0; y < gridSize; y++) {
+                grid[x][y] = [];
+                for (let z = 0; z < gridSize; z++) {
+                    grid[x][y][z] = { state: EMPTY };
+                }
+            }
+        }
+
+        // WFC rules
+        function applyWFCRules(x, y, z, tileType) {
+            if (tileType === WATER) {
+                // Water must be at the same level
+                const waterLevel = y;
+                
+                // Check if there's terrain nearby
+                let hasTerrain = false;
+                for (let dx = -1; dx <= 1; dx++) {
+                    for (let dz = -1; dz <= 1; dz++) {
+                        const newX = x + dx;
+                        const newZ = z + dz;
+                        
+                        if (newX >= 0 && newX < gridSize && 
+                            newZ >= 0 && newZ < gridSize) {
+                            if (grid[newX][waterLevel][newZ].state === TERRAIN) {
+                                hasTerrain = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // Only allow water placement if it's adjacent to terrain
+                if (!hasTerrain) {
+                    grid[x][y][z].state = EMPTY;
+                    const key = `${x},${y},${z}`;
+                    const cube = cubeRefs.get(key);
+                    if (cube) cube.material = emptyMaterial.clone();
+                    return;
+                }
+
+                // Propagate water around terrain
+                for (let dx = -1; dx <= 1; dx++) {
+                    for (let dz = -1; dz <= 1; dz++) {
+                        const newX = x + dx;
+                        const newZ = z + dz;
+                        
+                        if (newX >= 0 && newX < gridSize && 
+                            newZ >= 0 && newZ < gridSize) {
+                            // Only place water if the space is empty and has terrain nearby
+                            if (grid[newX][waterLevel][newZ].state === EMPTY) {
+                                let hasNearbyTerrain = false;
+                                // Check for adjacent terrain
+                                for (let tdx = -1; tdx <= 1; tdx++) {
+                                    for (let tdz = -1; tdz <= 1; tdz++) {
+                                        const terrainX = newX + tdx;
+                                        const terrainZ = newZ + tdz;
+                                        if (terrainX >= 0 && terrainX < gridSize && 
+                                            terrainZ >= 0 && terrainZ < gridSize) {
+                                            if (grid[terrainX][waterLevel][terrainZ].state === TERRAIN) {
+                                                hasNearbyTerrain = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                                if (hasNearbyTerrain) {
+                                    grid[newX][waterLevel][newZ].state = WATER;
+                                    const key = `${newX},${waterLevel},${newZ}`;
+                                    const cube = cubeRefs.get(key);
+                                    if (cube) cube.material = waterMaterial.clone();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Function to create the mesh grid
+        function createGrid() {
+            while(scene.children.length > 0){
+                const obj = scene.children[0];
+                scene.remove(obj);
+            }
+
+            // Re-add lights
+            scene.add(ambientLight);
+            scene.add(directionalLight);
+
+            const gridHelper = new THREE.GridHelper(gridSize * cellSize, gridSize);
+            scene.add(gridHelper);
+
+            // Create all cubes (visible and invisible)
+            for (let x = 0; x < gridSize; x++) {
+                for (let y = 0; y < gridSize; y++) {
+                    for (let z = 0; z < gridSize; z++) {
+                        const geometry = new THREE.BoxGeometry(cellSize, cellSize, cellSize);
+                        const material = grid[x][y][z].state === TERRAIN ? terrainMaterial : grid[x][y][z].state === WATER ? waterMaterial : emptyMaterial;
+                        const cube = new THREE.Mesh(geometry, material);
+                        cube.position.set(
+                            (x - gridSize / 2) * cellSize + cellSize / 2,
+                            (y - gridSize / 2) * cellSize + cellSize / 2,
+                            (z - gridSize / 2) * cellSize + cellSize / 2
+                        );
+                        cube.userData.gridPosition = {x, y, z}; // Store grid position
+                        scene.add(cube);
+                        cubeRefs.set(`${x},${y},${z}`, cube);
+                    }
+                }
+            }
+        }
+
+        // Modified click handler
+        function onMouseClick(event) {
+            // Only handle left and right mouse buttons
+            if (event.button !== 0 && event.button !== 2) return;
+            
+            // event.preventDefault();
+            
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(scene.children);
+
+            if (intersects.length > 0) {
+                const clicked = intersects[0].object;
+                if (clicked.userData.gridPosition) {
+                    const {x, y, z} = clicked.userData.gridPosition;
+                    
+                    if (event.button === 0) { // Left click to place
+                        const selectedType = document.getElementById('tileType').value;
+                        console.log('Selected type:', selectedType); // Debug line
+                        
+                        let tileType, material;
+                        if (selectedType === 'water') {
+                            tileType = WATER;
+                            material = waterMaterial.clone();
+                        } else {
+                            tileType = TERRAIN;
+                            material = terrainMaterial.clone();
+                        }
+                        
+                        grid[x][y][z].state = tileType;
+                        clicked.material = material;
+                        
+                        // Apply WFC rules
+                        if (tileType === WATER) {
+                            applyWFCRules(x, y, z, tileType);
+                        }
+                    } else if (event.button === 2) { // Right click to remove
+                        grid[x][y][z].state = EMPTY;
+                        clicked.material = emptyMaterial.clone();
+                    }
+                }
+            }
+        }
+
+        // Update event listeners
+        window.addEventListener('pointerdown', onMouseClick);
+        window.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        // Configure OrbitControls
+        controls.mouseButtons = {
+            LEFT: THREE.MOUSE.ROTATE,
+            MIDDLE: THREE.MOUSE.DOLLY,
+            RIGHT: THREE.MOUSE.ROTATE
+        };
+
+        // Modified clear function
+        document.getElementById('generateBtn').addEventListener('click', () => {
+            for (let x = 0; x < gridSize; x++) {
+                for (let y = 0; y < gridSize; y++) {
+                    for (let z = 0; z < gridSize; z++) {
+                        grid[x][y][z].state = EMPTY;
+                    }
+                }
+            }
+            createGrid();
+        });
+
+        // Initial camera position
+        camera.position.set(10, 10, 10);
+        controls.update();
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Render loop
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Initial setup
+        createGrid();
+    </script>
+</body>
+</html>

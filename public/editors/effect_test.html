@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { 
+      margin: 0; 
+      overflow: hidden;
+      background: #000;
+    }
+    canvas { 
+      display: block; 
+    }
+    #spellSelector {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      z-index: 100;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      padding: 10px;
+      border-radius: 5px;
+      font-family: 'Arial', sans-serif;
+    }
+    select {
+      background: rgba(30,30,30,0.9);
+      color: white;
+      padding: 5px;
+      border: 1px solid #666;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body>
+  <div id="spellSelector">
+    <select id="classType">
+      <option value="brightwizard">Bright Wizard</option>
+      <option value="warriorpriest">Warrior Priest</option>
+      <option value="shadowwarrior">Shadow Warrior</option>
+    </select>
+    <select id="spellType"></select>
+  </div>
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lil-gui@0.17.0/dist/lil-gui.umd.min.js"></script>
+  <script>
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+// Vertex shader remains the same as before
+const vertexShader = `
+  varying vec2 vUv;
+  varying vec3 vPosition;
+  varying vec3 vNormal;
+  
+  uniform float time;
+  uniform float deformIntensity;
+  uniform float waveSpeed;
+  
+  void main() {
+    vUv = uv;
+    vPosition = position;
+    vNormal = normal;
+    
+    vec3 deformedPosition = position;
+    deformedPosition.x += sin(position.y * 5.0 + time * waveSpeed) * deformIntensity;
+    deformedPosition.y += cos(position.x * 5.0 + time * waveSpeed) * deformIntensity;
+    
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(deformedPosition, 1.0);
+  }
+`;
+
+// Fixed fragment shader
+const fragmentShader = `
+  uniform float time;
+  uniform vec3 baseColor;
+  uniform vec3 accentColor;
+  uniform float intensity;
+  uniform float noiseScale;
+  uniform float pulseSpeed;
+  uniform float glowIntensity;
+  uniform int effectType;
+  
+  varying vec2 vUv;
+  varying vec3 vPosition;
+  varying vec3 vNormal;
+  
+  // Simplified noise function
+  float random(vec3 scale, float seed) {
+    return fract(sin(dot(vec3(vUv.x, vUv.y, seed), scale)) * 43758.5453 + seed);
+  }
+
+  float noise(vec3 p) {
+    vec3 floor_p = floor(p);
+    vec3 fract_p = fract(p);
+    
+    float n = dot(floor_p, vec3(1.0, 157.0, 113.0));
+    vec4 v = vec4(
+      random(vec3(1.0, 157.0, 113.0), n),
+      random(vec3(1.0, 157.0, 113.0), n + 157.0),
+      random(vec3(1.0, 157.0, 113.0), n + 113.0),
+      random(vec3(1.0, 157.0, 113.0), n + 270.0)
+    );
+    
+    vec3 f = fract_p * fract_p * (3.0 - 2.0 * fract_p);
+    return mix(
+      mix(v.x, v.y, f.x),
+      mix(v.z, v.w, f.x),
+      f.y
+    );
+  }
+  
+  // Bright Wizard Effects
+  vec4 fireballEffect() {
+    vec3 noisePos = vec3(vUv * noiseScale, time * 0.5);
+    float noise_val = noise(noisePos) * 0.5 + 0.5;
+    
+    float pulse = sin(time * pulseSpeed) * 0.5 + 0.5;
+    vec3 color = mix(baseColor, accentColor, noise_val * pulse);
+    
+    float edge = 1.0 - length(vUv - 0.5) * 2.0;
+    edge = smoothstep(0.0, 0.5, edge);
+    
+    return vec4(color * intensity * edge, edge * glowIntensity);
+  }
+  
+  vec4 burningHeadEffect() {
+    vec3 noisePos = vec3(vUv * noiseScale, time);
+    float noise_val = noise(noisePos);
+    
+    float skull = smoothstep(0.4, 0.6, 1.0 - length(vUv - 0.5));
+    float flames = noise_val * 0.5 + 0.5;
+    
+    vec3 skullColor = mix(accentColor, vec3(1.0), skull);
+    vec3 flameColor = mix(baseColor, accentColor, flames);
+    
+    vec3 finalColor = mix(flameColor, skullColor, skull * 0.7);
+    float alpha = max(skull, flames * 0.8);
+    
+    return vec4(finalColor * intensity, alpha * glowIntensity);
+  }
+  
+  // Warrior Priest Effects
+  vec4 holyLightEffect() {
+    float rings = sin(length(vUv - 0.5) * 20.0 - time * 2.0) * 0.5 + 0.5;
+    float glow = 1.0 - length(vUv - 0.5) * 2.0;
+    
+    vec3 color = mix(baseColor, accentColor, rings);
+    float alpha = smoothstep(0.0, 0.5, glow) * glowIntensity;
+    
+    return vec4(color * intensity * (glow + rings * 0.5), alpha);
+  }
+  
+  // Shadow Warrior Effects
+  vec4 darkArrowEffect() {
+    vec2 centered = vUv - 0.5;
+    float arrow = smoothstep(0.1, 0.0, abs(centered.y) - centered.x * 0.2);
+    
+    vec3 noisePos = vec3(vUv * noiseScale + time * 0.2, time);
+    float noise_val = noise(noisePos) * 0.5 + 0.5;
+    
+    vec3 color = mix(baseColor, accentColor, noise_val);
+    float alpha = arrow * (noise_val * 0.5 + 0.5);
+    
+    return vec4(color * intensity * arrow, alpha * glowIntensity);
+  }
+  
+  void main() {
+    vec4 finalColor;
+    
+    if (effectType == 0) finalColor = fireballEffect();
+    else if (effectType == 1) finalColor = burningHeadEffect();
+    else if (effectType == 2) finalColor = holyLightEffect();
+    else finalColor = darkArrowEffect();
+    
+    gl_FragColor = finalColor;
+  }
+`;
+
+    // Effect configurations
+    const effectConfigs = {
+      brightwizard: {
+        fireball: {
+          geometry: new THREE.SphereGeometry(1, 32, 32),
+          baseColor: [1.0, 0.4, 0.1],
+          accentColor: [1.0, 0.8, 0.3],
+          noiseScale: 4.0,
+          pulseSpeed: 2.0,
+          glowIntensity: 1.5,
+          deformIntensity: 0.1,
+          waveSpeed: 1.0,
+          effectType: 0
+        },
+        burninghead: {
+          geometry: new THREE.TorusGeometry(0.8, 0.4, 32, 32),
+          baseColor: [1.0, 0.3, 0.1],
+          accentColor: [1.0, 0.7, 0.2],
+          noiseScale: 3.0,
+          pulseSpeed: 3.0,
+          glowIntensity: 2.0,
+          deformIntensity: 0.2,
+          waveSpeed: 2.0,
+          effectType: 1
+        }
+      },
+      warriorpriest: {
+        divine: {
+          geometry: new THREE.PlaneGeometry(2, 2, 32, 32),
+          baseColor: [1.0, 0.9, 0.6],
+          accentColor: [1.0, 1.0, 0.8],
+          noiseScale: 2.0,
+          pulseSpeed: 1.5,
+          glowIntensity: 1.8,
+          deformIntensity: 0.05,
+          waveSpeed: 0.5,
+          effectType: 2
+        }
+      },
+      shadowwarrior: {
+        darkarrow: {
+          geometry: new THREE.ConeGeometry(0.5, 2, 32),
+          baseColor: [0.3, 0.0, 0.4],
+          accentColor: [0.6, 0.0, 0.8],
+          noiseScale: 5.0,
+          pulseSpeed: 4.0,
+          glowIntensity: 1.2,
+          deformIntensity: 0.15,
+          waveSpeed: 3.0,
+          effectType: 3
+        }
+      }
+    };
+
+    let currentEffect = null;
+
+    const params = {
+      baseColor: [1.0, 0.4, 0.1],
+      accentColor: [1.0, 0.8, 0.3],
+      intensity: 1.0,
+      noiseScale: 4.0,
+      pulseSpeed: 2.0,
+      glowIntensity: 1.5,
+      deformIntensity: 0.1,
+      waveSpeed: 1.0,
+      effectType: 0
+    };
+
+    function createEffect(config) {
+  if (currentEffect) {
+    scene.remove(currentEffect);
+  }
+
+  const material = new THREE.ShaderMaterial({
+    uniforms: {
+      time: { value: 0.0 },
+      baseColor: { value: new THREE.Vector3(...config.baseColor) },
+      accentColor: { value: new THREE.Vector3(...config.accentColor) },
+      intensity: { value: 1.0 },
+      noiseScale: { value: config.noiseScale },
+      pulseSpeed: { value: config.pulseSpeed },
+      glowIntensity: { value: config.glowIntensity },
+      deformIntensity: { value: config.deformIntensity },
+      waveSpeed: { value: config.waveSpeed },
+      effectType: { value: config.effectType }
+    },
+    vertexShader,
+    fragmentShader,
+    transparent: true,
+    blending: THREE.AdditiveBlending
+  });
+
+  const mesh = new THREE.Mesh(config.geometry, material);
+  scene.add(mesh);
+  currentEffect = mesh;
+  
+  // Update GUI with new parameters
+  updateGUI(config);
+}
+
+// GUI setup
+const gui = new lil.GUI();
+const effectFolder = gui.addFolder('Effect Parameters');
+
+function updateGUI(config) {
+  // Clear existing controls
+  effectFolder.controllers.forEach(controller => controller.destroy());
+  effectFolder.folders.forEach(folder => folder.destroy());
+
+  // Add new controls
+  effectFolder.addColor(params, 'baseColor').onChange(value => {
+    currentEffect.material.uniforms.baseColor.value.set(...value);
+  });
+  effectFolder.addColor(params, 'accentColor').onChange(value => {
+    currentEffect.material.uniforms.accentColor.value.set(...value);
+  });
+  effectFolder.add(params, 'intensity', 0, 2).onChange(value => {
+    currentEffect.material.uniforms.intensity.value = value;
+  });
+  effectFolder.add(params, 'noiseScale', 0, 10).onChange(value => {
+    currentEffect.material.uniforms.noiseScale.value = value;
+  });
+  effectFolder.add(params, 'pulseSpeed', 0, 5).onChange(value => {
+    currentEffect.material.uniforms.pulseSpeed.value = value;
+  });
+  effectFolder.add(params, 'glowIntensity', 0, 3).onChange(value => {
+    currentEffect.material.uniforms.glowIntensity.value = value;
+  });
+  effectFolder.add(params, 'deformIntensity', 0, 0.5).onChange(value => {
+    currentEffect.material.uniforms.deformIntensity.value = value;
+  });
+  effectFolder.add(params, 'waveSpeed', 0, 5).onChange(value => {
+    currentEffect.material.uniforms.waveSpeed.value = value;
+  });
+}
+
+// Setup spell selectors
+const classSelect = document.getElementById('classType');
+const spellSelect = document.getElementById('spellType');
+
+function updateSpellOptions() {
+  const selectedClass = classSelect.value;
+  const spells = effectConfigs[selectedClass];
+  
+  // Clear existing options
+  spellSelect.innerHTML = '';
+  
+  // Add new options
+  Object.keys(spells).forEach(spell => {
+    const option = document.createElement('option');
+    option.value = spell;
+    option.textContent = spell.charAt(0).toUpperCase() + spell.slice(1);
+    spellSelect.appendChild(option);
+  });
+  
+  // Create initial effect
+  const firstSpell = Object.keys(spells)[0];
+  createEffect(spells[firstSpell]);
+}
+
+// Event listeners
+classSelect.addEventListener('change', updateSpellOptions);
+spellSelect.addEventListener('change', () => {
+  const selectedClass = classSelect.value;
+  const selectedSpell = spellSelect.value;
+  createEffect(effectConfigs[selectedClass][selectedSpell]);
+});
+
+// Camera setup
+camera.position.z = 5;
+
+// Animation loop
+function animate() {
+  requestAnimationFrame(animate);
+  
+  if (currentEffect) {
+    currentEffect.material.uniforms.time.value += 0.016; // Approximately 60 FPS
+    currentEffect.rotation.y += 0.005;
+  }
+  
+  renderer.render(scene, camera);
+}
+
+// Window resize handler
+window.addEventListener('resize', () => {
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  
+  camera.aspect = width / height;
+  camera.updateProjectionMatrix();
+  
+  renderer.setSize(width, height);
+});
+
+// Initialize
+updateSpellOptions();
+animate();
+</script>
+</body>
+</html> 

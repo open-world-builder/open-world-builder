@@ -1,0 +1,445 @@
+{
+  "systems": [
+    {
+      "name": "sunSystem",
+      "id": "sunSystem",
+      "capacity": 1600,
+      "disposeOnStop": false,
+      "manualEmitCount": -1,
+      "emitterId": "emitterSphere",
+      "particleEmitterType": {
+        "type": "SphereParticleEmitter",
+        "radius": 1,
+        "radiusRange": 0,
+        "directionRandomizer": 0
+      },
+      "textureName": "sun/T_SunSurface.png",
+      "invertY": true,
+      "isLocal": false,
+      "animations": [],
+      "startDelay": 0,
+      "renderingGroupId": 3,
+      "isBillboardBased": false,
+      "billboardMode": 7,
+      "minAngularSpeed": -0.4,
+      "maxAngularSpeed": 0.4,
+      "minSize": 0.4,
+      "maxSize": 0.7,
+      "minScaleX": 1,
+      "maxScaleX": 2,
+      "minScaleY": 1,
+      "maxScaleY": 2,
+      "minEmitPower": 0,
+      "maxEmitPower": 0,
+      "minLifeTime": 1,
+      "maxLifeTime": 1,
+      "emitRate": 200,
+      "gravity": [
+        0,
+        0,
+        0
+      ],
+      "noiseStrength": [
+        10,
+        10,
+        10
+      ],
+      "color1": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "color2": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "colorDead": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "updateSpeed": 0.005,
+      "targetStopDuration": 0,
+      "blendMode": 2,
+      "preWarmCycles": 100,
+      "preWarmStepOffset": 10,
+      "minInitialRotation": -6.283185307179586,
+      "maxInitialRotation": 6.283185307179586,
+      "startSpriteCellID": 0,
+      "spriteCellLoop": true,
+      "endSpriteCellID": 0,
+      "spriteCellChangeSpeed": 0,
+      "spriteCellWidth": 0,
+      "spriteCellHeight": 0,
+      "isAnimationSheetEnabled": false,
+      "useLogarithmicDepth": false,
+      "colorGradients": [
+        {
+          "gradient": 0,
+          "color1": [
+            0.8509,
+            0.4784,
+            0.1019,
+            0
+          ],
+          "color2": [
+            0.8509,
+            0.4784,
+            0.1019,
+            0
+          ]
+        },
+        {
+          "gradient": 0.4,
+          "color1": [
+            0.6259,
+            0.3056,
+            0.0619,
+            0.5
+          ],
+          "color2": [
+            0.6259,
+            0.3056,
+            0.0619,
+            0.5
+          ]
+        },
+        {
+          "gradient": 0.5,
+          "color1": [
+            0.6039,
+            0.2887,
+            0.0579,
+            0.5
+          ],
+          "color2": [
+            0.6039,
+            0.2887,
+            0.0579,
+            0.5
+          ]
+        },
+        {
+          "gradient": 1,
+          "color1": [
+            0.3207,
+            0.0713,
+            0.0075,
+            0
+          ],
+          "color2": [
+            0.3207,
+            0.0713,
+            0.0075,
+            0
+          ]
+        }
+      ],
+      "textureMask": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "customShader": null,
+      "preventAutoStart": true,
+      "worldOffset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "flareParticles",
+      "id": "flareParticles",
+      "capacity": 20,
+      "disposeOnStop": false,
+      "manualEmitCount": -1,
+      "emitterId": "emitterSphere",
+      "particleEmitterType": {
+        "type": "SphereParticleEmitter",
+        "radius": 1,
+        "radiusRange": 0,
+        "directionRandomizer": 0
+      },
+      "textureName": "sun/T_SunFlare.png",
+      "invertY": true,
+      "isLocal": false,
+      "animations": [],
+      "startDelay": 0,
+      "renderingGroupId": 2,
+      "isBillboardBased": true,
+      "billboardMode": 7,
+      "minAngularSpeed": 0,
+      "maxAngularSpeed": 0,
+      "minSize": 1,
+      "maxSize": 1,
+      "minScaleX": 0.5,
+      "maxScaleX": 3,
+      "minScaleY": 0.5,
+      "maxScaleY": 4,
+      "minEmitPower": 0.001,
+      "maxEmitPower": 0.01,
+      "minLifeTime": 3,
+      "maxLifeTime": 5,
+      "emitRate": 1,
+      "gravity": [
+        0,
+        0,
+        0
+      ],
+      "noiseStrength": [
+        10,
+        10,
+        10
+      ],
+      "color1": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "color2": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "colorDead": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "updateSpeed": 0.01,
+      "targetStopDuration": 0,
+      "blendMode": 2,
+      "preWarmCycles": 100,
+      "preWarmStepOffset": 10,
+      "minInitialRotation": -6.283185307179586,
+      "maxInitialRotation": 6.283185307179586,
+      "startSpriteCellID": 0,
+      "spriteCellLoop": true,
+      "endSpriteCellID": 0,
+      "spriteCellChangeSpeed": 0,
+      "spriteCellWidth": 0,
+      "spriteCellHeight": 0,
+      "isAnimationSheetEnabled": false,
+      "useLogarithmicDepth": false,
+      "colorGradients": [
+        {
+          "gradient": 0,
+          "color1": [
+            1,
+            0.9612,
+            0.5141,
+            0
+          ],
+          "color2": [
+            1,
+            0.9612,
+            0.5141,
+            0
+          ]
+        },
+        {
+          "gradient": 0.25,
+          "color1": [
+            0.9058,
+            0.7152,
+            0.3825,
+            1
+          ],
+          "color2": [
+            0.9058,
+            0.7152,
+            0.3825,
+            1
+          ]
+        },
+        {
+          "gradient": 1,
+          "color1": [
+            0.632,
+            0,
+            0,
+            0
+          ],
+          "color2": [
+            0.632,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "sizeGradients": [
+        {
+          "gradient": 0,
+          "factor1": 0,
+          "factor2": 0
+        },
+        {
+          "gradient": 1,
+          "factor1": 1,
+          "factor2": 1
+        }
+      ],
+      "textureMask": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "customShader": null,
+      "preventAutoStart": true,
+      "worldOffset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "glareParticles",
+      "id": "glareParticles",
+      "capacity": 600,
+      "disposeOnStop": false,
+      "manualEmitCount": -1,
+      "emitterId": "emitterSphere",
+      "particleEmitterType": {
+        "type": "SphereParticleEmitter",
+        "radius": 1,
+        "radiusRange": 0,
+        "directionRandomizer": 0
+      },
+      "textureName": "sun/T_Star.png",
+      "invertY": true,
+      "isLocal": false,
+      "animations": [],
+      "startDelay": 0,
+      "renderingGroupId": 1,
+      "isBillboardBased": true,
+      "billboardMode": 7,
+      "minAngularSpeed": 0,
+      "maxAngularSpeed": 0,
+      "minSize": 1,
+      "maxSize": 1,
+      "minScaleX": 0.5,
+      "maxScaleX": 1.2,
+      "minScaleY": 0.75,
+      "maxScaleY": 3,
+      "minEmitPower": 0,
+      "maxEmitPower": 0,
+      "minLifeTime": 2,
+      "maxLifeTime": 2,
+      "emitRate": 300,
+      "gravity": [
+        0,
+        0,
+        0
+      ],
+      "noiseStrength": [
+        10,
+        10,
+        10
+      ],
+      "color1": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "color2": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "colorDead": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "updateSpeed": 0.01,
+      "targetStopDuration": 0,
+      "blendMode": 2,
+      "preWarmCycles": 100,
+      "preWarmStepOffset": 10,
+      "minInitialRotation": -6.283185307179586,
+      "maxInitialRotation": 6.283185307179586,
+      "startSpriteCellID": 0,
+      "spriteCellLoop": true,
+      "endSpriteCellID": 0,
+      "spriteCellChangeSpeed": 0,
+      "spriteCellWidth": 0,
+      "spriteCellHeight": 0,
+      "isAnimationSheetEnabled": false,
+      "useLogarithmicDepth": false,
+      "colorGradients": [
+        {
+          "gradient": 0,
+          "color1": [
+            0.8509,
+            0.4784,
+            0.1019,
+            0
+          ],
+          "color2": [
+            0.8509,
+            0.4784,
+            0.1019,
+            0
+          ]
+        },
+        {
+          "gradient": 0.5,
+          "color1": [
+            0.6039,
+            0.2887,
+            0.0579,
+            0.12
+          ],
+          "color2": [
+            0.6039,
+            0.2887,
+            0.0579,
+            0.12
+          ]
+        },
+        {
+          "gradient": 1,
+          "color1": [
+            0.3207,
+            0.0713,
+            0.0075,
+            0
+          ],
+          "color2": [
+            0.3207,
+            0.0713,
+            0.0075,
+            0
+          ]
+        }
+      ],
+      "textureMask": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "customShader": null,
+      "preventAutoStart": true,
+      "worldOffset": [
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

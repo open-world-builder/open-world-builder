@@ -1,0 +1,678 @@
+<!-- choose on hit particle, self particle, projfection effect -->
+<!-- choose on hit sound, casting sound, cast end sound -->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Skill Maker</title>
+    <style>
+      body,
+      html {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #000;
+      }
+
+      #app {
+        /* display: flex; */
+        height: 100%;
+      }
+
+      #renderCanvas {
+        flex: 1;
+        width: 100%;
+        height: 100%;
+        filter: blur(20px);
+        opacity: 0;
+        transition: opacity 0.9s ease-out, filter 0.9s ease-out;
+        background: #000;
+      }
+
+      #renderCanvas.fade-blur {
+        filter: blur(0px);
+        opacity: 1;
+      }
+
+      #skill-editor {
+        opacity: 0;
+      }
+
+      #effect-editor-container {
+        background: #000;
+      }
+
+      #controls {
+        width: 240px;
+        padding: 10px;
+        background: #222;
+        color: #eee;
+        font-family: sans-serif;
+        position: absolute;
+        top: 0px;
+        right: 0px;
+      }
+
+      button {
+        width: 100%;
+        margin: 5px 0;
+        padding: 8px;
+        /* background: #444;
+         */
+        background: #00000059;
+        border: none;
+        color: #eee;
+        cursor: pointer;
+        transition: filter 0.2s ease;
+      }
+
+      button:hover {
+        /* background: #00000080; */
+        filter: brightness(1.6);
+      }
+
+      input[type="range"] {
+        width: 100%;
+      }
+
+      label {
+        font-size: 13px;
+        display: block;
+        margin-top: 10px;
+      }
+
+      #babylonUnmuteButton {
+        margin-left: 200px;
+      }
+
+      .sub-options {
+        max-width: 120px;
+      }
+
+      .skill-editor::-webkit-scrollbar {
+        width: 0;
+        height: 0;
+      }
+
+      /* 2. For Firefox */
+      .skill-editor {
+        scrollbar-width: none;
+        /* hides it in Firefox */
+        -ms-overflow-style: none;
+        /* hides it in IE10+ */
+      }
+
+      input[type="range"] {
+        /* Remove default styles */
+        -webkit-appearance: none;
+        appearance: none;
+        background: transparent;
+        width: 200px;
+        margin: 10px 0;
+        box-shadow: 0 0 0 0px #c2b17f;
+
+        /* Track styles */
+        &::-webkit-slider-runnable-track {
+          height: 8px;
+          background: linear-gradient(to right, #463714, #c2b17f);
+          border-radius: 4px;
+          border: 1px solid #785a28;
+          box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Thumb styles */
+        &::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 24px;
+          height: 24px;
+          background: #c2b17f;
+          border: 2px solid #785a28;
+          border-radius: 50%;
+          cursor: pointer;
+          margin-top: -8px; /* Centers the thumb on the track */
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+          transition: all 0.2s ease;
+        }
+
+        /* Hover effects */
+        &::-webkit-slider-thumb:hover {
+          background: #d4c48d;
+          box-shadow: 0 0 10px #c2b17f;
+        }
+
+        /* Focus styles */
+        &:focus {
+          outline: none;
+        }
+
+        /* Firefox styles */
+        &::-moz-range-track {
+          height: 8px;
+          background: linear-gradient(to right, #463714, #c2b17f);
+          border-radius: 4px;
+          border: 1px solid #785a28;
+          box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+
+        &::-moz-range-thumb {
+          width: 24px;
+          height: 24px;
+          background: #c2b17f;
+          border: 2px solid #785a28;
+          border-radius: 50%;
+          cursor: pointer;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+          transition: all 0.2s ease;
+        }
+      }
+    </style>
+    <script src="/lib/babylon-8.js"></script>
+    <script src="/lib/vue.global.prod.min.js"></script>
+    <script src="/lib/babylon.inspector.bundle.js"></script>
+    <script src="/lib/babylonjs.loaders.min.js"></script>
+    <script src="/lib/babylon.customMaterial.min.js"></script>
+    <script src="/lib/HavokPhysics_umd.js"></script>
+    <script src="/src/GLOBALS.js"></script>
+    <script src="/lib/MSDF-Text/MSDF-text-single.js"></script>
+
+    <!-- <script type="module"> -->
+    <!-- // import * as BABYLON from "https://cdn.jsdelivr.net/npm/@babylonjs/core@5/esm/index.js"; -->
+    <!-- </script> -->
+  </head>
+
+  <body>
+    <canvas id="renderCanvas"></canvas>
+
+    <div id="app"></div>
+    <div id="skill-editor-container"></div>
+
+    <!-- <div id="skillBar">
+    <div class="skill-slot" draggable="true" data-slot="1">
+      <div class="cooldown"></div>
+      <div class="key-bind">1</div>
+    </div>
+    <div class="skill-slot" draggable="true" data-slot="2">
+      <div class="cooldown"></div>
+      <div class="key-bind">2</div>
+    </div>
+    <div class="skill-slot" draggable="true" data-slot="3">
+      <div class="cooldown"></div>
+      <div class="key-bind">3</div>
+    </div>
+    <div class="skill-slot" draggable="true" data-slot="4">
+      <div class="cooldown"></div>
+      <div class="key-bind">4</div>
+    </div>
+  </div> -->
+
+    <div id="skillBar">
+      <div class="skill-slot" draggable="true" data-slot="1">
+        <div class="cooldown"></div>
+        <div class="key-bind">1</div>
+      </div>
+      <div class="skill-slot" draggable="true" data-slot="2">
+        <div class="cooldown"></div>
+        <div class="key-bind">2</div>
+      </div>
+      <div class="skill-slot" draggable="true" data-slot="3">
+        <div class="cooldown"></div>
+        <div class="key-bind">3</div>
+      </div>
+      <div class="skill-slot" draggable="true" data-slot="4">
+        <div class="cooldown"></div>
+        <div class="key-bind">4</div>
+      </div>
+      <!--4 for mobile maybe-->
+      <div class="skill-slot" draggable="true" data-slot="5">
+        <div class="cooldown"></div>
+        <div class="key-bind">5</div>
+      </div>
+      <div class="skill-slot" draggable="true" data-slot="6">
+        <div class="cooldown"></div>
+        <div class="key-bind">6</div>
+      </div>
+      <div class="skill-slot" draggable="true" data-slot="7">
+        <div class="cooldown"></div>
+        <div class="key-bind">7</div>
+      </div>
+      <div class="skill-slot" draggable="true" data-slot="8">
+        <div class="cooldown"></div>
+        <div class="key-bind">8</div>
+      </div>
+      <div class="skill-slot" draggable="true" data-slot="9">
+        <div class="cooldown"></div>
+        <div class="key-bind">9</div>
+      </div>
+    </div>
+
+    <!-- rewrite text test -->
+    <!-- <script src="/lib/babylon-8.js"></script> -->
+
+    <!-- text test -->
+    <!-- <script type="module">
+      import * as BABYLON from "/lib/babylon-test.min.js";
+      // import { createTextMesh } from "/lib/MSDF-Text/babylon-msdf-text.es.js";
+      console.log("test");
+
+      window.addEventListener("DOMContentLoaded", async function () {
+        console.log(BABYLON);
+        const canvas = document.getElementById("renderCanvas");
+        const engine = new BABYLON.Engine(canvas);
+        const scene = new BABYLON.Scene(engine);
+        scene.clearColor = new BABYLON.Color3(1, 1, 1);
+
+        // Add a camera
+        const camera = new BABYLON.ArcRotateCamera("camera", 0, 0, 10, new BABYLON.Vector3(0, 0, 0), scene);
+        camera.attachControl(canvas, true);
+        camera.setPosition(new BABYLON.Vector3(0, 0, -400));
+      });
+    </script> -->
+    <script type="module">
+      //   import { setupInputHandling } from "/src/movement.js";
+      import { loadHeroModel } from "/src/character/hero.js";
+      import { createEffectEditor } from "/src/utils/VFXEditor.js";
+      import { createSkillEditor } from "/src/utils/SkillEditor.js";
+      import { setupAnim } from "/src/utils/anim.js";
+      import { setupInputHandling } from "/src/movement.js";
+      import { setupPhysics } from "/src/utils/physics.js";
+      import { setupCamera } from "/src/utils/camera.js";
+      import { SkillBar } from "/src/combat/skills/SkillBar.js";
+      import { Spellbook } from "/src/combat/skills/Spellbook.js";
+      import { SoundManager } from "/src/utils/sound.js";
+
+      import SceneManager from "/src/scene/SceneManager.js";
+      import { setSceneManager } from "/src/character/damagePopup.js";
+      import { loadModels } from "/src/utils/load.js";
+
+      // import { createTextMesh } from "/lib/MSDF-Text/babylon-msdf-text.es.js";
+      // import fnt from "/lib/MSDF-Text/fontAssets/roboto-regular.json";
+      // import png from "/lib/MSDF-Text/fontAssets/roboto-regular.png";
+
+      import { Health } from "/src/character/health.js";
+      let sound = null;
+
+      window.addEventListener("DOMContentLoaded", async function () {
+        // 2) init Babylon
+        const canvas = document.getElementById("renderCanvas");
+        const engine = new BABYLON.Engine(canvas, true);
+        const scene = new BABYLON.Scene(engine);
+        let camera;
+
+        let sceneManager = { activeScene: scene };
+        window.SCENE_MANAGER = sceneManager;
+        setSceneManager(sceneManager);
+
+        const originalTimeScale = 1;
+        window.hitStop = function (duration = 100) {
+          scene.paused = true;
+
+          // scene.setAnimationRatio(0);
+
+          setTimeout(() => {
+            scene.paused = false;
+            // scene.render();
+            // scene.setAnimationRatio(originalTimeScale);
+          }, duration);
+        };
+
+        // engine.setHardwareScalingLevel(2);
+
+        // const camera = new BABYLON.ArcRotateCamera("cam", Math.PI / 2, 1.2, 30, BABYLON.Vector3.Zero(), scene);
+        // camera.lowerRadiusLimit = 1;
+        // camera.wheelDeltaPercentage = 0.02;
+        // camera.attachControl(canvas, true);
+
+        // Add debug layer toggle on Tab key
+        window.addEventListener("keydown", (ev) => {
+          if (ev.key === "Tab") {
+            ev.preventDefault(); // Prevent Tab from changing focus
+            if (scene.debugLayer.isVisible()) {
+              scene.debugLayer.hide();
+            } else {
+              scene.debugLayer.show();
+            }
+          }
+        });
+
+        // First Run Setup
+        async function setup() {
+          camera = await setupCharacter();
+          await setupSkillEditor(camera);
+          setupEffectEditor();
+          setupSkillBar();
+          setupSpellbook();
+          setupVFX();
+          // setupText();
+
+          const modelUrls = ["util/HPBar.glb"];
+
+          // const { hero, skeleton } = await loadHeroModel(scene, character);
+
+          //9000 ms all in the heroModelPromise load.
+          const [models] = await Promise.all([loadModels(scene, modelUrls)]);
+
+          function loadHPModels(scene, engine, HPBar) {
+            HPBAR = HPBar;
+            HPBAR.position.y += 13;
+            var blackMaterial = new BABYLON.StandardMaterial("blackMat", scene);
+            blackMaterial.diffuseColor = new BABYLON.Color3(0, 0, 0); // Black color
+            blackMaterial.specularColor = new BABYLON.Color3(0, 0, 0); // No specular highlight
+            HPBAR.getChildMeshes()[1].material = blackMaterial;
+
+            const shaderMaterial = new BABYLON.ShaderMaterial(
+              "hpbar",
+              scene,
+              {
+                vertex: "../../../../../shaders/hp/hp",
+                fragment: "../../../shaders/hp/hp",
+              },
+              {
+                attributes: ["position", "normal", "uv"],
+                uniforms: ["worldViewProjection", "iTime", "iResolution", "iChannel0", "iChannel1"],
+              }
+            );
+
+            var iChannel0 = new BABYLON.Texture("assets/textures/effects/ripple.png", scene);
+            var iChannel1 = new BABYLON.Texture("assets/textures/effects/bar.png", scene);
+
+            shaderMaterial.setTexture("iChannel0", iChannel0);
+            shaderMaterial.setTexture("iChannel1", iChannel1);
+            shaderMaterial.setFloat("iTime", 0);
+            shaderMaterial.setVector2("iResolution", new BABYLON.Vector2(engine.getRenderWidth(), engine.getRenderHeight()));
+
+            var iTime = 0;
+            scene.onBeforeRenderObservable.add(() => {
+              iTime += engine.getDeltaTime() / 1000.0;
+              shaderMaterial.setFloat("iTime", iTime);
+            });
+            HPBAR.getChildMeshes()[0].material = shaderMaterial;
+
+            HPBAR.getChildMeshes()[0].isPickable = false;
+            HPBAR.getChildMeshes()[1].isPickable = false;
+          }
+          loadHPModels(scene, engine, models["HPBar"]);
+
+          new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+          engine.runRenderLoop(() => scene.render());
+          window.addEventListener("resize", () => engine.resize());
+          document.getElementById("renderCanvas").classList.add("fade-blur");
+
+          // window.screenShake = function (intensity = 0.2, duration = 40) {
+          //   const startTime = performance.now();
+          //   const originalPosition = { x: camera.target.x, y: camera.target.y, z: camera.target.z };
+          //   const originalAlpha = camera.alpha;
+          //   const originalBeta = camera.beta;
+          //   camera.isShaking = true;
+
+          //   function shake() {
+          //     const elapsed = performance.now() - startTime;
+
+          //     if (elapsed < duration) {
+          //       const x = (Math.random() - 0.5) * intensity;
+          //       const y = (Math.random() - 0.5) * intensity;
+          //       const z = (Math.random() - 0.5) * intensity;
+          //       // camera.target.x = originalPosition.x + x;
+          //       // camera.target.y = originalPosition.y + y;
+          //       // camera.target.z = originalPosition.z + z;
+
+          //       requestAnimationFrame(shake);
+
+          //       camera.alpha = originalAlpha + x;
+          //       camera.beta = originalBeta + y;
+          //     } else {
+          //       // camera.target.x = originalPosition.x;
+          //       // camera.target.y = originalPosition.y;
+          //       // camera.target.z = originalPosition.z;
+
+          //       camera.alpha = originalAlpha;
+          //       camera.beta = originalBeta;
+          //       camera.isShaking = false;
+          //     }
+          //   }
+
+          //   shake();
+          // };
+
+          // window.screenShake = function (intensity = 0.2, duration = 40) {
+          //   const startTime = performance.now();
+          //   const originalPosition = { x: camera.target.x, y: camera.target.y, z: camera.target.z };
+          //   const originalAlpha = camera.alpha;
+          //   const originalBeta = camera.beta;
+          //   camera.isShaking = true;
+
+          //   function shake() {
+          //     const elapsed = performance.now() - startTime;
+          //     const progress = elapsed / duration;
+
+          //     if (elapsed < duration) {
+          //       // Create a decay factor that goes from 1 to 0 smoothly
+          //       const decay = Math.cos(progress * Math.PI) * 0.5 + 0.5;
+
+          //       // Use sine waves with different frequencies for smooth random-looking motion
+          //       const x = Math.sin(elapsed * 0.05) * intensity * decay;
+          //       const y = Math.sin(elapsed * 0.04 + 2) * intensity * decay;
+
+          //       requestAnimationFrame(shake);
+
+          //       // Apply the shake with smooth interpolation
+          //       camera.alpha = originalAlpha + x;
+          //       // camera.beta = originalBeta + y;
+          //     } else {
+          //       // Reset to original position
+          //       camera.alpha = originalAlpha;
+          //       // camera.beta = originalBeta;
+          //       camera.isShaking = false;
+          //     }
+          //   }
+
+          //   shake();
+          // };
+
+          window.screenShake = function (intensity = 0.2, duration = 40) {
+            const startTime = performance.now();
+            const originalTarget = { x: camera.target.x, y: camera.target.y, z: camera.target.z };
+            const originalAlpha = camera.alpha;
+            camera.isShaking = true;
+
+            function shake() {
+              const elapsed = performance.now() - startTime;
+              const progress = elapsed / duration;
+
+              if (elapsed < duration) {
+                // Create a decay factor that goes from 1 to 0 smoothly
+                const decay = Math.cos(progress * Math.PI) * 0.5 + 0.5;
+
+                // Use sine waves with different frequencies for smooth random-looking motion
+                // Using different frequencies for each axis creates more dynamic motion
+                // const xOffset = Math.sin(elapsed * 0.05) * intensity * decay;
+                // const yOffset = Math.sin(elapsed * 0.04 + 2) * intensity * decay;
+                // const zOffset = Math.sin(elapsed * 0.03 + 4) * intensity * decay;
+
+                // Reduced frequencies by half (0.05 → 0.025, 0.04 → 0.02, 0.03 → 0.015)
+                const xOffset = Math.sin(elapsed * 0.025) * intensity * decay;
+                const yOffset = Math.sin(elapsed * 0.02 + 2) * intensity * decay;
+                const zOffset = Math.sin(elapsed * 0.015 + 4) * intensity * decay;
+
+                // Apply the shake to the target position
+                camera.target.x = originalTarget.x + xOffset;
+                camera.target.y = originalTarget.y + yOffset;
+                // camera.target.z = originalTarget.z + zOffset;
+
+                // You can keep the rotation shake too for more intense effect
+                // camera.alpha = originalAlpha + xOffset * 0.5; // reduced intensity for rotation
+
+                requestAnimationFrame(shake);
+              } else {
+                // Reset to original positions
+                camera.target.x = originalTarget.x;
+                camera.target.y = originalTarget.y;
+                camera.target.z = originalTarget.z;
+                // camera.alpha = originalAlpha;
+                camera.isShaking = false;
+              }
+            }
+
+            shake();
+          };
+        }
+
+        setup();
+
+        async function setupText() {
+          const fontJson = await fetch("/lib/MSDF-Text/fontAssets/roboto-regular.json").then((r) => r.json()); // load JSON as data :contentReference[oaicite:2]{index=2}
+          const pngUrl = "/lib/MSDF-Text/fontAssets/roboto-regular.png"; // just a URL
+          // Create text mesh
+
+          const fontJson2 = await fetch("/lib/MSDF-Text/fontAssets/abel-regular.json").then((r) => r.json()); // load JSON as data :contentReference[oaicite:2]{index=2}
+          const pngUrl2 = "/lib/MSDF-Text/fontAssets/abel-regular.png"; // just a URL
+
+          const mesh = createMSDFTextMesh(
+            "hello",
+            {
+              text: "Hello MSDF!",
+              font: fontJson, // BMFont JSON
+              atlas: pngUrl, // or a BABYLON.Texture
+              width: 900,
+              align: "center",
+              color: new BABYLON.Color3(0.2, 0, 0),
+              strokeColor: new BABYLON.Color3(0, 0, 0),
+              strokeWidth: 0.9,
+            },
+            scene
+          );
+          mesh.position.x += 20;
+          mesh.position.y += 13;
+          mesh.scaling.set(0.05, 0.05, 0.05);
+          mesh.isPickable = false;
+
+          const mesh2 = createMSDFTextMesh(
+            "hello",
+            {
+              text: "Hello MSDF!",
+              font: fontJson2, // BMFont JSON
+              atlas: pngUrl2, // or a BABYLON.Texture
+              width: 900,
+              align: "center",
+              color: new BABYLON.Color3(0.2, 0, 0),
+              strokeColor: new BABYLON.Color3(0, 0, 0),
+              strokeWidth: 0.1,
+            },
+            scene
+          );
+          mesh2.position.y += 13;
+          mesh2.scaling.set(0.05, 0.05, 0.05);
+          mesh2.isPickable = false;
+        }
+
+        function setupSkillBar() {
+          SKILL_BAR = new SkillBar();
+          SKILL_BAR.showSkillBar();
+        }
+
+        function setupSpellbook() {
+          PLAYER_DATA = {
+            skills: [],
+          };
+
+          SPELLBOOK = new Spellbook();
+        }
+
+        function setupVFX() {
+          VFX["fireBall"] = BABYLON.CreateSphere("Fireball Orb", { diameter: 2, segments: 32 }, scene);
+          VFX["fireBall"].isPickable = false;
+        }
+
+        //move to sound loading file
+        async function setupSound(camera) {
+          // let soundPresets = [
+          //   { name: "Explosion", path: "/assets/sounds/vfx/fire/foom_0.wav" },
+          //   { name: "Cleanse", path: "/assets/sounds/vfx/ability/ability_cleanse.mp3" },
+          //   { name: "Infected Bolt Loop", path: "/assets/sounds/vfx/ability/ability_infected_bolt_loop.mp3" },
+          //   { name: "Iron Maiden", path: "/assets/sounds/vfx/ability/ability_iron_maiden.mp3" },
+          //   { name: "Open Wound", path: "/assets/sounds/vfx/ability/ability_openwound.mp3" },
+          //   { name: "Protect", path: "/assets/sounds/vfx/ability/ability_protect.mp3" },
+          //   { name: "Protective Spirit", path: "/assets/sounds/vfx/ability/ability_protectivespirit.mp3" },
+          //   { name: "Purge", path: "/assets/sounds/vfx/ability/ability_purge.mp3" },
+          //   { name: "Quickness", path: "/assets/sounds/vfx/ability/ability_quickness.mp3" },
+          //   { name: "Silence", path: "/assets/sounds/vfx/ability/ability_silence.mp3" },
+          //   { name: "Subduct Down", path: "/assets/sounds/vfx/ability/ability_subduct_down.mp3" },
+          //   { name: "Subduct Up", path: "/assets/sounds/vfx/ability/ability_subduct_up.mp3" },
+          //   { name: "Ice 2", path: "/assets/sounds/vfx/ability/ice_2.mp3" },
+          //   { name: "Ice 3", path: "/assets/sounds/vfx/ability/ice_3.mp3" },
+          //   { name: "Sword SFX", path: "/assets/sounds/vfx/ability/sword_sfx.wav" },
+          //   { name: "Fireplace", path: "/assets/sounds/vfx/fire/fireplace_long.mp3" },
+          // ];
+          // editor.playSound("Explosion");
+          const audioEngine = await BABYLON.CreateAudioEngineAsync();
+          // const gunshot = await BABYLON.CreateSoundAsync("gunshot", "/assets/sounds/vfx/fire/foom_0.wav");
+          // Wait until audio engine is ready to play sounds.
+          // await audioEngine.unlockAsync();
+          // gunshot.play();
+          // Create sounds here, but don't call `play()` on them, yet ...
+          sound = new SoundManager(scene);
+          let soundPresets = await sound.createSoundPresets();
+
+          // for (const soundPreset of soundPresets) {
+          //   sound.createSound(soundPreset.name, soundPreset.path, "sfx", { volume: 0.8 });
+          //   // sound.play("explosion", "sfx");
+          // }
+          camera.sound = sound;
+          // Wait until audio engine is ready to play sounds.
+          // await audioEngine.unlockAsync();
+          return soundPresets;
+        }
+        async function setupSkillEditor(camera) {
+          const soundPresets = await setupSound(camera);
+          const editorApp = createSkillEditor("skill-editor", scene, camera);
+          const editor = editorApp.mount("#skill-editor-container");
+          editor.soundPresets = soundPresets;
+          editor.show();
+        }
+        function setupEffectEditor() {
+          // Create container div
+          const container = document.createElement("div");
+          container.id = "effect-editor-container";
+          document.body.appendChild(container);
+          const editorApp = createEffectEditor("effect-editor", scene);
+          const editor = editorApp.mount("#effect-editor-container");
+
+          // editor.show(); // Show the editor initially
+          // Toggle editor visibility when 'p' key is pressed
+          window.addEventListener("keydown", (event) => {
+            if (event.key === "o") {
+              editor.toggle();
+            }
+          });
+        }
+        async function setupCharacter() {
+          const spawnPoint = new BABYLON.Vector3(0, 1, 0);
+          const { character, dummyAggregate } = await setupPhysics(scene, spawnPoint);
+          character.position.y = 0;
+          const heroModelPromise = loadHeroModel(scene, character);
+          const [heroModel] = await Promise.all([heroModelPromise]);
+          const { hero, skeleton } = heroModel;
+          let anim = setupAnim(scene, skeleton);
+          const camera = setupCamera(scene, character, engine);
+          camera.alpha = Math.PI / 2;
+          camera.preferredZoom = 30;
+          camera.shouldPrefferedZoom = true;
+          setupInputHandling(scene, character, camera, hero, anim, engine, dummyAggregate);
+          hero.getChildMeshes().forEach((mesh) => {
+            mesh.material._metallicF0Factor = 0;
+          });
+
+          character.health = new Health("Hero", 100, dummyAggregate);
+          character.health.rotationCheck = hero;
+          character.health.rangeCheck = character;
+          character.health.anim = anim;
+
+          PLAYER = character;
+
+          camera.anim = anim;
+          return camera;
+        }
+      });
+    </script>
+  </body>
+</html>
