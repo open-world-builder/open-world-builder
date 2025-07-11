@@ -2,8 +2,6 @@
 
 ![Open World Builder Screenshot](public/assets/util/screenshots/splash/project-splash.jpg)
 
-## Demo
-
 [Play in your browser](https://game.openworldbuilder.com/) instantly.
 
 ## Run Locally
