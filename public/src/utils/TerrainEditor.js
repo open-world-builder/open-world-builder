@@ -1177,6 +1177,12 @@ float sway = sin(position.x * 2.0 + iTime * swaySpeed) * swayStrength;
       }
     }
 
+    if (tool === "paint" || tool === "grass" || tool === "npc") {
+      document.body.style.cursor = "pointer";
+    } else {
+      document.body.style.cursor = "default";
+    }
+
     if (this.previewMesh) {
       //objects
       this.removePreviewMesh();
