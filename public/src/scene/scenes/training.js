@@ -144,8 +144,10 @@ export async function createTraining(engine) {
   // );
   // playAnimation(animation2, true);
   // testAnimation(scene, character2);
+  setTimeout(() => {
+    setupClass();
+  }, 1000);
 
-  setupClass();
   // Get Class JSON
   // Has SkillBar
   // Has SkillBook
