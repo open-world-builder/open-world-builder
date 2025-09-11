@@ -337,6 +337,7 @@ function handleClick() {
   }
   if (mobileMoving) return;
   console.log(mobileMoving);
+
   // const distanceToTarget = BABYLON.Vector3.Distance(character.position, character.touchTarget);
   // if (distanceToTarget > attackDistance)
   //     return;

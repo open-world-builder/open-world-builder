@@ -76,7 +76,7 @@ export const SKILLS = {
     },
     vfx: "slashVFX",
 
-    cooldown: 500,
+    cooldown: 800,
     range: 50,
     cost: [{ type: "stamina", value: 10 }],
     effects: [new Effect("damage", 10, { delay: 0.3, sound: "Sword SFX", soundDelay: 0.28, hitVFX: "explosionMinimalSword", screenShakeIntensity: 0.1, screenShakeDuration: 300 })],

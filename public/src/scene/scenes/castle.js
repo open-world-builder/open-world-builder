@@ -51,6 +51,8 @@ export async function createCastle(engine) {
   // camera.upperBetaLimit = Math.PI / 2; // Stops at the horizon (90 degrees)
   camera.alpha = 0.5077;
   camera.beta = 1.4437;
+  camera.mouseLookMode = true;
+  camera.fov = 1.0;
 
   // load all models, make sure parallel loading for speed
   const modelUrls = [
@@ -889,7 +891,7 @@ function setupCutscene(scene, engine) {
   const oldCam = scene.activeCamera;
   const cutCam = new BABYLON.UniversalCamera("cutCam", scene.activeCamera.position.clone(), scene);
   cutCam.intertia = 0.3;
-  cutCam.angularSensitivity = 400;
+  cutCam.angularSensitivity = 1000;
   cutCam.setTarget(scene.activeCamera.getTarget());
   setupPostProcessing(scene, cutCam);
 
@@ -2196,8 +2198,12 @@ function setupPostProcessing(scene, camera) {
   pipeline.imageProcessingEnabled = true;
 
   // Configure effects
-  pipeline.samples = 4; // MSAA anti-aliasing
+  // Blurry
+  // pipeline.samples = 4; // MSAA anti-aliasing
   // pipeline.fxaaEnabled = false; // Enable FXAA
+
+  // pipeline.samples = 4; // MSAA anti-aliasing
+  pipeline.fxaaEnabled = true; // Enable FXAA
 
   pipeline.bloomEnabled = true; // Enable bloom
   pipeline.bloomThreshold = 1.85; //only affect sun not clouds
@@ -2238,7 +2244,7 @@ function setupPostProcessing(scene, camera) {
   // colorCorrection.samples = 4;
 
   COLOR_CORRECTION = new BABYLON.ColorCorrectionPostProcess("color_correction", "/assets/textures/postprocess/lut-terrain-5.png", 1.0, camera);
-  COLOR_CORRECTION.samples = 4;
+  // COLOR_CORRECTION.samples = 4;
 
   return pipeline;
 }

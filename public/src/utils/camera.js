@@ -75,6 +75,7 @@ export function setupCamera(scene, target, engine) {
   // Add key listener for first-person toggle
   window.addEventListener("keydown", (event) => {
     if (event.key === "/") toggleFirstPersonView(scene, target);
+    if (event.key.toLowerCase() === "u") toggleMouseLookMode(scene);
   });
 
   // Add the interaction raycast setup
@@ -123,26 +124,35 @@ export function setupCamera(scene, target, engine) {
   //   const upperLimit = Math.PI - 0.01;
   //   camera.beta = Math.max(lowerLimit, Math.min(upperLimit, camera.beta));
   // });
-  let isPointerLocked = false;
-  document.addEventListener("pointerlockchange", () => {
-    isPointerLocked = document.pointerLockElement === canvas;
-  });
-  scene.onPointerObservable.add((pointerInfo) => {
-    if (!isPointerLocked) return;
-    switch (pointerInfo.type) {
-      case BABYLON.PointerEventTypes.POINTERMOVE:
-        // Implement camera movement logic here based on pointerInfo.event.movementX and movementY
-        const sensitivity = 0.002; // Adjust sensitivity as needed
-        camera.alpha -= pointerInfo.event.movementX * sensitivity;
-        camera.beta -= pointerInfo.event.movementY * sensitivity;
 
-        // Clamp beta to prevent the camera from flipping
-        const lowerLimit = 0.01;
-        const upperLimit = Math.PI - 0.01;
-        camera.beta = Math.max(lowerLimit, Math.min(upperLimit, camera.beta));
-        break;
-    }
-  });
+  camera.mouseLookMode = false;
+  let isPointerLocked = false;
+  const canvas = document.getElementById("renderCanvas");
+  camera.angularSensibilityX = 2000;
+  camera.angularSensibilityY = 2000;
+
+  // document.addEventListener("pointerlockchange", () => {
+  //   isPointerLocked = document.pointerLockElement === canvas;
+  // });
+
+  // scene.onPointerObservable.add((pointerInfo) => {
+  //   // if (!isPointerLocked || !camera.mouseLookMode) return;
+  //   if (!isPointerLocked || !camera.mouseLookMode) return;
+  //   switch (pointerInfo.type) {
+  //     case BABYLON.PointerEventTypes.POINTERMOVE:
+  //       // Implement camera movement logic here based on pointerInfo.event.movementX and movementY
+  //       const sensitivity = 0.002; // Adjust sensitivity as needed
+  //       camera.alpha -= pointerInfo.event.movementX * sensitivity;
+  //       camera.beta -= pointerInfo.event.movementY * sensitivity;
+
+  //       // Clamp beta to prevent the camera from flipping
+  //       const lowerLimit = 0.01;
+  //       const upperLimit = Math.PI - 0.01;
+  //       camera.beta = Math.max(lowerLimit, Math.min(upperLimit, camera.beta));
+  //       break;
+  //   }
+  // });
+
   // camera.inertia = 0.5;
 
   return camera;
@@ -847,5 +857,19 @@ export function toggleFirstPersonView(scene, target) {
 
     // Re-enable preferred zoom for third person
     camera.shouldPrefferedZoom = true;
+  }
+}
+
+// Add mouse look toggle function
+export function toggleMouseLookMode(scene) {
+  const camera = scene.activeCamera;
+  const canvas = document.getElementById("renderCanvas");
+
+  camera.mouseLookMode = !camera.mouseLookMode;
+
+  if (camera.mouseLookMode) {
+    canvas.requestPointerLock();
+  } else {
+    document.exitPointerLock();
   }
 }

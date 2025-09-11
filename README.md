@@ -1,33 +1,15 @@
-# Open World Builder
+# Local Dev
 
-![Open World Builder Screenshot](public/assets/util/screenshots/splash/project-splash.jpg)
+pnpm install
 
-[Play in your browser](https://game.openworldbuilder.com/) instantly.
+# Local Client - Dev Client Server
 
-## Run Locally
+pnpm run dev
 
-`pnpm install`
+# Deploy to netlify
 
-`pnpm run dev`
+~ pnpm run build
+~ netlify deploy --prod
 
-Open the resulting link in browser.
-
-## Debugging
-
-### In-Game Inspector
-
-Press `\` to open the in-game inspector.
-
-### Switching Demo Levels
-
-You can switch scenes by adding [`?scene=inn`](https://game.openworldbuilder.com?scene=inn).
-
-## Deploying
-
-`pnpm run build`
-
-Upload all files in the `dist` folder.
-
-## Contributing
-
-Please feel free to contribute or open an issue. Anything that simplifies or lowers line count is greatly appreciated.
+or
+upload dist to netlify

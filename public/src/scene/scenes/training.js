@@ -37,6 +37,7 @@ export async function createTraining(engine) {
   camera.upperBetaLimit = Math.PI / 2; // Stops at the horizon (90 degrees)
   camera.alpha = 4.954;
   camera.beta = 1.3437;
+  camera.fov = 0.9;
 
   // load all models, make sure parallel loading for speed
   const modelUrls = ["characters/enemy/slime/Slime1.glb", "characters/weapons/Sword2.glb", "util/HPBar.glb", "env/interior/training/CharacterSelectArea.glb", "util/atmosphere/lightrays/lightrays.glb"];
@@ -85,6 +86,15 @@ export async function createTraining(engine) {
   createTrail(scene, engine, sword, 0.2, 40, new BABYLON.Vector3(0, 0, 0.32));
 
   const slime1 = models["Slime1"];
+  // slime1.material.albedoColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+  console.log(slime1);
+  slime1.getChildMeshes().forEach((mesh) => {
+    if (mesh.material) {
+      mesh.material.albedoColor = new BABYLON.Color3(0.21, 0.21, 0.21);
+      mesh.material.metallic = 0.9;
+      mesh.material.roughness = 0.99;
+    }
+  });
   let groundObject = models["CharacterSelectArea"].getChildMeshes()[0];
   setupEnemies(scene, character, groundObject, 7, slime1);
 
@@ -146,7 +156,7 @@ export async function createTraining(engine) {
   // testAnimation(scene, character2);
   setTimeout(() => {
     setupClass();
-  }, 1000);
+  }, 10);
 
   // Get Class JSON
   // Has SkillBar
@@ -477,7 +487,7 @@ function setupPostProcessing(scene, camera) {
 
   // Configure effects
   pipeline.samples = 4; // MSAA anti-aliasing
-  pipeline.fxaaEnabled = false; // Enable FXAA
+  pipeline.fxaaEnabled = true; // Enable FXAA
 
   pipeline.bloomEnabled = true; // Enable bloom
   pipeline.bloomThreshold = 1.85; //only affect sun not clouds
@@ -505,7 +515,7 @@ function setupPostProcessing(scene, camera) {
   imgProc.vignetteEnabled = true;
   // imgProc.vignetteWeight = 2.6;
   imgProc.vignetteWeight = 2.6;
-  imgProc.vignetteCameraFov = 0.4;
+  imgProc.vignetteCameraFov = 0.35;
   imgProc.vignetteColor = new BABYLON.Color4(0, 0, 0, 1);
   imgProc.vignetteBlendMode = BABYLON.ImageProcessingConfiguration.VIGNETTEMODE_MULTIPLY;
   //     var sharpen = new BABYLON.SharpenPostProcess("sharpen", 1.0, camera);

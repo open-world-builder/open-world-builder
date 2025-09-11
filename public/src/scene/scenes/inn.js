@@ -73,55 +73,8 @@ export async function createInn(engine) {
 
   setTimeout(async () => {
     setupSound(scene);
-    addDust(scene, engine);
   }, 100);
   return scene;
-}
-
-function addDust(scene, engine) {
-  // Create a particle system
-  const particleSystem = new BABYLON.ParticleSystem("particles", 300);
-
-  //Texture of each particle
-  particleSystem.particleTexture = new BABYLON.Texture("./assets/textures/effects/flare.png");
-
-  // Create a larger box emitter
-  particleSystem.emitter = new BABYLON.Vector3(-50, 130, 50);
-  particleSystem.minEmitBox = new BABYLON.Vector3(-200, -10, -200); // Starting point of emission
-  particleSystem.maxEmitBox = new BABYLON.Vector3(200, 10, 200); // End point of emission
-
-  particleSystem.minEmitPower = 1;
-  particleSystem.maxEmitPower = 3;
-
-  particleSystem.minSize = 0.05;
-  particleSystem.maxSize = 0.01;
-
-  particleSystem.emitRate = 30;
-
-  // Add fade effect
-  particleSystem.minLifeTime = 7.0; // Minimum lifetime of particles
-  particleSystem.maxLifeTime = 7.5; // Maximum lifetime of particles
-
-  // Color gradient over lifetime
-  // particleSystem.addColorGradient(0, new BABYLON.Color4(0, 1, 1, 0.2)); // Start transparent
-  // particleSystem.addColorGradient(1.0, new BABYLON.Color4(0, 1, 1, 0.2)); // Fade out
-  particleSystem.addColorGradient(0, new BABYLON.Color4(253 / 255, 177 / 255, 126 / 255, 0.2)); // Start transparent
-  particleSystem.addColorGradient(1.0, new BABYLON.Color4(255 / 255, 200 / 255, 157 / 255, 0.2)); // Fade out
-
-
-  particleSystem.color1 = new BABYLON.Color4(0.7, 0.8, 1.0, 1.0);
-  particleSystem.color2 = new BABYLON.Color4(0.2, 0.5, 1.0, 1.0);
-  particleSystem.colorDead = new BABYLON.Color4(0, 0, 0.2, 0.0);
-
-  particleSystem.direction1 = new BABYLON.Vector3(-7, -8, 3);
-  particleSystem.direction2 = new BABYLON.Vector3(7, -8, -3);
-
-  particleSystem.addSizeGradient(0, 0.0); //size at start of particle lifetime
-  particleSystem.addSizeGradient(0.3, 1); //size at end of particle lifetime
-  particleSystem.addSizeGradient(0.7, 1);
-  particleSystem.addSizeGradient(1, 0);
-
-  particleSystem.start();
 }
 
 async function setupSound(scene) {
@@ -397,9 +350,7 @@ function setupLighting(scene) {
   hemisphericLight.intensity = 1.15; // Adjust intensity of the light
   hemisphericLight.diffuse = new BABYLON.Color3(1, 183 / 255, 124 / 255); // White light
   hemisphericLight.specular = new BABYLON.Color3(0.0, 0.0, 0.0); // Gray specular highlight
-  // hemisphericLight.groundColor = new BABYLON.Color3(52 / 255, 63 / 255, 112 / 255); // Dark ground color
-  hemisphericLight.groundColor = new BABYLON.Color3(42 / 255, 67 / 255, 174 / 255); // Bluer Dark ground color
-
+  hemisphericLight.groundColor = new BABYLON.Color3(52 / 255, 63 / 255, 112 / 255); // Dark ground color
 
   return hemisphericLight;
 }

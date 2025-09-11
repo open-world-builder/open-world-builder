@@ -157,7 +157,7 @@ class SceneManager {
     this.setupPlayModeFromUrl(urlParams.get("mode"));
 
     let timeout = 100;
-    if (!FAST_RELOAD) timeout = 3500;
+    if (!FAST_RELOAD) timeout = 2500;
     setTimeout(() => {
       this.canvas.classList.add("visible");
     }, timeout);

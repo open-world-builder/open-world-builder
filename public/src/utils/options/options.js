@@ -51,6 +51,8 @@ export class Options {
                     <label>Enable SSAO</label>
                     <input type="checkbox" id="enable-ssao" checked>
                 </div>
+
+
                
                 <div class="option-item">
                     <label>SSAO Quality</label>
@@ -65,6 +67,12 @@ export class Options {
                     <label>High Quality Blur</label>
                     <input type="checkbox" id="expensive-blur" checked>
                 </div>
+
+                <div class="option-item">
+                    <label>Round Cooldowns</label>
+                    <input type="checkbox" id="round-cooldowns">
+                </div>
+
             </div>
  <h2>Sound Options</h2>
             <div class="graphics-section">
@@ -186,6 +194,11 @@ export class Options {
     unstuckMeButton.addEventListener("click", () => {
       DUMMY_AGGREGATE.resetToSpawn();
       this.triggerCallback("unstuckMe", true);
+    });
+
+    const roundCooldowns = this.panel.querySelector("#round-cooldowns");
+    roundCooldowns.addEventListener("change", (e) => {
+      this.triggerCallback("roundCooldowns", e.target.checked);
     });
 
     // Add event listeners for graphics options
@@ -339,5 +352,30 @@ export function setupOptions(scene, engine) {
   OPTIONS.onOptionChange("ambienceVolume", (value) => {
     scene.activeCamera.sound.ambience.volume = value;
     // scene.activeCamera.sound.setChannelVolume("voice", value);
+  });
+
+  OPTIONS.onOptionChange("roundCooldowns", (value) => {
+    const skillSlots = document.querySelectorAll(".skill-slot");
+    skillSlots.forEach((slot) => {
+      if (value) {
+        slot.classList.add("round");
+      } else {
+        slot.classList.remove("round");
+      }
+    });
+
+    // Find all .skill-slot elements and toggle border radius
+    const skillSlotImages = document.querySelectorAll(".skill-slot img");
+    skillSlotImages.forEach((img) => {
+      console.log("img", img);
+      // img.style.borderRadius = "100px";
+      if (value) {
+        // Make them round (circular)
+        img.style.borderRadius = "100px";
+      } else {
+        // Reset to default rounded corners
+        img.style.borderRadius = "0px !important";
+      }
+    });
   });
 }
