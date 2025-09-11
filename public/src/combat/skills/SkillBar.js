@@ -10,6 +10,10 @@ export class SkillBar {
     this.slots = new Map();
     this.hasInitialized = false;
     this.skillBar = document.querySelector("#skillBar");
+    this.gcdDuration = 1000; // 1.5 seconds
+    this.lastGcd = 0;
+    this.veil = 0.8;
+    this.queuedSkill = null; // Add this line for autocast
   }
 
   setupSkillBar() {
@@ -22,6 +26,8 @@ export class SkillBar {
     // this.addHitStop();
     this.addScreenShake();
     this.listenForSkillEditorMessages();
+
+    this.startAutocastLoop();
   }
 
   showSkillBar() {
@@ -118,7 +124,7 @@ export class SkillBar {
                 height: 50px;
                 border: 2px solid #666;
                 border: 1px solid #000;
-                border-radius: 5px;
+                /* border-radius: 5px; */
                 background: rgba(0, 0, 0, 0.3);
                 position: relative;
                 cursor: pointer;
@@ -585,6 +591,139 @@ export class SkillBar {
             transition: height 0.1s linear;
             pointer-events: none;
         }
+
+
+        .skill-slot.gcd::after,
+.skill-slot.pcd::after{
+    content:""; 
+    position:absolute; 
+    inset:0; 
+    border-radius:inherit; 
+    z-index:1; 
+    pointer-events:none;
+    background: rgba(0,0,0,var(--veil));
+    /* Wedge reveal from 12 o'clock using conic mask */
+    -webkit-mask-image: conic-gradient(from -90deg, transparent 0 var(--deg,0deg), #000 var(--deg,0deg) 360deg);
+    mask-image: conic-gradient(from -90deg, transparent 0 var(--deg,0deg), #000 var(--deg,0deg) 360deg);
+}
+
+/* Highlight ring for queued & active */
+/* .skill-slot.active::before */
+.skill-slot.queued::after
+{
+    content:""; 
+    position:absolute; 
+     inset:-6px; 
+    border-radius:inherit; 
+    z-index:2; 
+    pointer-events:none;
+    background: conic-gradient(#cfd6ff,#cfd6ff,#cfd6ff);
+    /*filter: blur(1px) saturate(1.2) drop-shadow(0 0 6px #cfd6ff) drop-shadow(0 0 14px #cfd6ff);
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 0);
+    mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 0);
+    */
+    box-shadow: 0 0 0 3px #ffae33 inset, 0 0 10px #ffae33;
+
+    animation: spin-smoothglow 1.2s linear infinite;
+}
+
+.skill-slot.queued::before{
+    /*background: conic-gradient(#ffcf33,#ff6a00,#ffcf33);
+    filter: blur(1px) saturate(1.2) drop-shadow(0 0 6px #ff6a00) drop-shadow(0 0 14px #ff6a00); */
+} 
+
+.skill-slot.queued::before
+{
+ 
+}
+@keyframes spin-smoothglow {
+
+ 
+ 0% {
+ filter: brightness(2.0);
+ }
+ 
+ 
+ 50% {
+ filter: brightness(4.2);
+ /* Brighter peak */
+ }
+ 
+ 100% {
+ filter: brightness(2.0);
+ }
+ }
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Circle Cooldown */
+.skill-slot.round {
+    border-radius: 50% !important;
+}
+
+
+
+            .skill-slot.cool::after {
+                content: "";
+                position: absolute;
+                inset: 0;
+                border-radius: inherit;
+                background: rgba(0, 0, 0, var(--ring-darkness, 0.7));
+                pointer-events: none;
+                -webkit-mask-image: conic-gradient(from -90deg, transparent 0 var(--deg, 0deg), #000 var(--deg, 0deg) 360deg);
+
+                mask-image: conic-gradient(from -90deg, transparent 0 var(--deg, 0deg), #000 var(--deg, 0deg) 360deg);
+
+                
+            }
+
+.ability {
+ position: relative;
+ aspect-ratio: 1;
+ /* border-radius: 999px; */
+ border: 1px solid #2a2f55;
+ background: #1a1f3d;
+ display: grid;
+ place-items: center;
+ font-size: 34px;
+ cursor: pointer;
+ user-select: none;
+ /* overflow: hidden; */
+ transition: filer 2s;
+ }
+ 
+ .ability:hover {
+ filter: brightness(1.2);
+ }
+ 
+ /* Single overlay used for BOTH personal CD and global CD; progress via --deg */
+ .ability.cool::after {
+ content: "";
+ position: absolute;
+ inset: 0;
+ border-radius: inherit;
+ background: rgba(0, 0, 0, var(--ring-darkness));
+ pointer-events: none;
+ -webkit-mask-image: conic-gradient(from -90deg, transparent 0 var(--deg, 0deg), #000 var(--deg, 0deg) 360deg);
+ mask-image: conic-gradient(from -90deg, transparent 0 var(--deg, 0deg), #000 var(--deg, 0deg) 360deg);
+ /* width: 140%; */
+ /* height: 140%; */
+ /* top: -20%; */
+ /* left: -20%; */
+ }
+ 
+ /* Simple queue highlight */
+ .ability.queued {
+ box-shadow: 0 0 0 3px #ffae33 inset, 0 0 10px #ffae33;
+ }
+ 
+ .ability.queued::after {
+ content: "";
+ position: absolute;
+ inset: 0;
+ box-shadow: 0 0 0 3px #ffae33 inset, 0 0 10px #ffae33;
+ }
     `;
     document.head.appendChild(style);
 
@@ -793,6 +932,14 @@ export class SkillBar {
     // Cast using spell mechanics
     if (spell.canCast(caster, target)) {
       spell.cast(caster, target);
+
+      skillSlot.lastCast = Date.now();
+      this.lastGcd = Date.now(); // Global cooldown starts now
+
+      // Apply GCD visual to all skills
+      for (let i = 1; i <= 9; i++) {
+        if (this.slots.get(i) && i !== slot) this.updateGlobalCooldown(i);
+      }
     }
 
     // Apply effects
@@ -851,21 +998,115 @@ export class SkillBar {
     const skillSlot = this.slots.get(slot);
     const element = document.querySelector(`.skill-slot[data-slot="${slot}"] .cooldown`);
 
-    const updateProgress = () => {
-      const now = Date.now();
-      const elapsed = now - skillSlot.lastCast;
-      const progress = (elapsed / skillSlot.skill.cooldown) * 100;
+    let skillCooldownDisplay = "circle";
 
-      if (progress >= 100) {
-        element.style.height = "0%";
-        return;
-      }
+    //
+    if (skillCooldownDisplay === "square") {
+      const updateProgress = () => {
+        const now = Date.now();
+        const elapsed = now - skillSlot.lastCast;
+        const progress = (elapsed / skillSlot.skill.cooldown) * 100;
 
-      element.style.height = 100 - progress + "%";
+        if (progress >= 100) {
+          element.style.height = "0%";
+          this.tryAutocast(); // Add this line
+          return;
+        }
+
+        element.style.height = 100 - progress + "%";
+        requestAnimationFrame(updateProgress);
+      };
+
       requestAnimationFrame(updateProgress);
-    };
+    } else if (skillCooldownDisplay === "circle") {
+      const skillElement = document.querySelector(`.skill-slot[data-slot="${slot}"]`);
+      console.log("skillElement", skillElement);
 
-    requestAnimationFrame(updateProgress);
+      skillElement.classList.add("cool");
+      skillElement.style.setProperty("--ring-darkness", "0.7");
+      const updateProgress = () => {
+        const now = Date.now();
+        const elapsed = now - skillSlot.lastCast;
+        const progress = Math.min(elapsed / skillSlot.skill.cooldown, 1);
+        const degrees = progress * 360; // Remove the inversion - this makes it clockwise
+        skillElement.style.setProperty("--deg", `${degrees}deg`);
+        if (progress >= 1) {
+          skillElement.classList.remove("cool");
+          skillElement.style.removeProperty("--deg");
+          skillElement.style.removeProperty("--ring-darkness");
+          this.tryAutocast(); // Add this line
+          return;
+        }
+        requestAnimationFrame(updateProgress);
+      };
+      requestAnimationFrame(updateProgress);
+
+      // Use conic gradient cooldown animation
+      // element.classList.add("gcd");
+      // element.style.setProperty("--veil", "0.7");
+      // const updateProgress = () => {
+      //   const now = Date.now();
+      //   const elapsed = now - skillSlot.lastCast;
+      //   const progress = Math.min(elapsed / skillSlot.skill.cooldown, 1);
+      //   const degrees = progress * 360;
+      //   element.style.setProperty("--deg", `${degrees}deg`);
+      //   if (progress >= 1) {
+      //     element.classList.remove("gcd");
+      //     element.style.removeProperty("--deg");
+      //     element.style.removeProperty("--veil");
+      //     return;
+      //   }
+      //   requestAnimationFrame(updateProgress);
+      // };
+      // requestAnimationFrame(updateProgress);
+    }
+  }
+
+  updateGlobalCooldown(slot) {
+    const element = document.querySelector(`.skill-slot[data-slot="${slot}"]`);
+    if (!element) return;
+
+    // Reset any existing cooldown state
+    // skillElement.classList.remove("cool");
+    // skillElement.style.removeProperty("--deg");
+    // skillElement.style.removeProperty("--ring-darkness");
+
+    element.classList.add("gcd");
+    element.style.setProperty("--veil", this.veil);
+
+    const animate = () => {
+      const progress = Math.min((Date.now() - this.lastGcd) / this.gcdDuration, 1);
+      element.style.setProperty("--deg", `${progress * 360}deg`);
+
+      if (progress >= 1) {
+        element.classList.remove("gcd");
+        element.style.removeProperty("--deg");
+        element.style.removeProperty("--veil");
+      } else {
+        requestAnimationFrame(animate);
+      }
+    };
+    requestAnimationFrame(animate);
+  }
+  // Optional: Add a method to start the autocast tick loop
+  //todo set to calling only one when queued every global cool down
+  startAutocastLoop() {
+    const tick = () => {
+      if (!this.queuedSkill) return;
+      this.tryAutocast();
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+
+  tryAutocast() {
+    if (!this.queuedSkill || !this.canCastSkill(this.queuedSkill)) return;
+    if (Date.now() - this.lastGcd < this.gcdDuration) return;
+
+    // Cast and clear queue
+    this.castSkill(this.queuedSkill, PLAYER.health, PLAYER.target.health);
+    document.querySelector(`.skill-slot[data-slot="${this.queuedSkill}"]`)?.classList.remove("queued");
+    this.queuedSkill = null;
   }
 
   setupDragAndDrop() {
@@ -1054,12 +1295,21 @@ export class SkillBar {
         // console.log("casting skill", slot);
         // console.log(PLAYER.health);
         // console.log(PLAYER.target.health);
-        this.castSkill(slot, PLAYER.health, PLAYER.target.health);
+
+        // this.castSkill(slot, PLAYER.health, PLAYER.target.health);
+        if (this.queuedSkill) {
+          document.querySelector(`.skill-slot[data-slot="${this.queuedSkill}"]`)?.classList.remove("queued");
+        }
+        this.queuedSkill = slot;
+        document.querySelector(`.skill-slot[data-slot="${slot}"]`).classList.add("queued");
+
+        this.tryAutocast();
 
         // Add visual feedback for the pressed key
         const slotElement = document.querySelector(`.skill-slot[data-slot="${slot}"]`);
         if (slotElement) {
           slotElement.classList.add("active");
+          slotElement.animate([{ transform: "scale(.95)" }, { transform: "none" }], { duration: 120, easing: "ease-out" });
           setTimeout(() => {
             slotElement.classList.remove("active");
           }, 300);
