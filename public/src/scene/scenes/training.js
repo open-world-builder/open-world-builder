@@ -21,6 +21,12 @@ import { ActionMenu } from "/src/utils/action-menu/actionMenu.js";
 
 import { SoundManager } from "/src/utils/sound.js";
 
+import { showLevelTitle } from '/src/utils/leveltext.js';
+
+import { addEnemyOutlineCamera } from "../../character/enemy.js";
+
+import { NPCPools } from "../../utils/npc/NPCPools.js";
+
 export async function createTraining(engine) {
   const scene = new BABYLON.Scene(engine);
 
@@ -65,6 +71,7 @@ export async function createTraining(engine) {
     stats: {},
     inventory: [],
   };
+  window.DUMMY_AGGREGATE = dummyAggregate;
 
   await setupOptions(scene, engine);
   // Todo: add shadow and post toggles in settings
@@ -95,8 +102,7 @@ export async function createTraining(engine) {
       mesh.material.roughness = 0.99;
     }
   });
-  let groundObject = models["CharacterSelectArea"].getChildMeshes()[0];
-  setupEnemies(scene, character, groundObject, 7, slime1);
+
 
   VFX["fireBall"] = addFireball(scene, engine);
 
@@ -107,8 +113,8 @@ export async function createTraining(engine) {
   addDust(scene, engine);
   // addNewFog(scene, engine);
   // addPostFog(scene, engine, camera);
-  testText(scene);
-  await createZoneText("Training", scene);
+  // testText(scene);
+  // await createZoneText("Training", scene);
 
   // VRM WIP
   // let character2 = await loadVRM(scene, "characters/vrm/avatar.vrm");
@@ -156,6 +162,26 @@ export async function createTraining(engine) {
   // testAnimation(scene, character2);
   setTimeout(() => {
     setupClass();
+
+    // showLevelTitle("Training Grounds", { fadeIn: 1400, hold: 1800, fadeOut: 1200 });
+    // showLevelTitle('CHAPTER III — THE BLACKENED GROVE', { subtitle: 'Whispers in the Fog' });
+    showLevelTitle('Training Grounds');
+
+    setTimeout(() => {
+      let groundObjects = models["CharacterSelectArea"].getChildMeshes();
+      setupNavmesh(groundObjects, scene);
+      //todo await 
+
+      // setTimeout(() => {
+      //   // Todo standardize ground object for navmesh and placement raycasts
+      //   let groundObject = models["CharacterSelectArea"].getChildMeshes()[0];
+      //   // let groundObject = models["CharacterSelectArea"].getChildMeshes()[3];
+      //   setupEnemies(scene, character, groundObject, 7, slime1);
+      // }, 9000);
+
+
+    }, 1000);
+
   }, 10);
 
   // Get Class JSON
@@ -167,6 +193,205 @@ export async function createTraining(engine) {
 
   await setupSound(scene);
   return scene;
+}
+
+// Todo BABYLON.Debug.DebugLayer.RegisterPane(MyCustomPane);
+async function setupNavmesh(meshes, scene) {
+  const recast = await new Recast();
+  // Initialize and enable Recast navigation plugin
+  const navigationPlugin = new BABYLON.RecastJSPlugin(recast);
+  NAVIGATION_PLUGIN = navigationPlugin;
+
+  var navmeshParameters = {
+    cs: 0.2,
+    ch: 0.2,
+    walkableSlopeAngle: 90,
+    walkableHeight: 1.0,
+    walkableClimb: 1,
+    walkableRadius: 1,
+    maxEdgeLen: 12,
+    maxSimplificationError: 1.3,
+    minRegionArea: 8,
+    mergeRegionArea: 20,
+    maxVertsPerPoly: 6,
+    detailSampleDist: 6,
+    detailSampleMaxError: 1,
+  };
+
+  const navmeshParametersLarge = {
+    cs: 50.0, // Cell size: larger values reduce memory usage
+    ch: 0.5, // Cell height: adjust based on terrain elevation detail
+    walkableSlopeAngle: 30, // Maximum slope angle agents can traverse
+    walkableHeight: 2.0, // Minimum agent height
+    walkableClimb: 0.5, // Maximum ledge height agents can climb
+    walkableRadius: 0.5, // Minimum agent radius
+    maxEdgeLen: 32, // Maximum length of polygon edges
+    maxSimplificationError: 1.3, // Controls mesh simplification
+    minRegionArea: 50, // Minimum region size
+    mergeRegionArea: 20, // Minimum region size to merge
+    maxVertsPerPoly: 6, // Maximum vertices per polygon
+    detailSampleDist: 6, // Detail mesh sample spacing
+    detailSampleMaxError: 1, // Maximum error for detail mesh simplification
+  };
+
+  const params = {
+    cs: 2.0, // Increased cell size to reduce complexity
+    ch: 2.0, // Increased cell height to match cell size
+    walkableSlopeAngle: 45, // More realistic slope angle
+    walkableHeight: 2.0, // Keep this for normal character height
+    walkableClimb: 3.0, // Increased to handle more height variations
+    walkableRadius: 1.0, // Increased radius to simplify walkable areas
+    maxEdgeLen: 12, // Increased for better triangulation
+    maxSimplificationError: 2.0, // Increased to allow more simplification
+    minRegionArea: 3, // Slightly increased to avoid tiny regions
+    mergeRegionArea: 10, // Increased to merge more regions
+    maxVertsPerPoly: 3, // Reduced to force triangles (helps with triangulation)
+    detailSampleDist: 6, // Increased sample distance
+    detailSampleMaxError: 2, // Increased error tolerance
+    rebuild: () => rebuildNavMesh(),
+  };
+  let NAVEMESH_DEBUG = false;
+  let navmeshdebug = null;
+  let matdebug = null;
+  function rebuildNavMesh() {
+    try {
+      if (NAVEMESH_DEBUG) {
+
+
+        // Clean up existing debug mesh if it exists
+        if (navmeshdebug) {
+          navmeshdebug.dispose();
+          matdebug.dispose();
+        }
+      }
+
+      // console.log(meshes);
+      // console.log(groundObject.name);
+      // Create new navmesh with current parameters
+      navigationPlugin.createNavMesh([meshes[2], meshes[3], meshes[4], meshes[5]], params);
+
+      if (NAVEMESH_DEBUG) {
+
+
+        // Create debug visualization
+        navmeshdebug = navigationPlugin.createDebugNavMesh(scene);
+        navmeshdebug.isPickable = false;
+
+        matdebug = new BABYLON.StandardMaterial("matdebug", scene);
+        matdebug.diffuseColor = new BABYLON.Color3(0.1, 0.2, 1);
+        matdebug.alpha = 0.2;
+        navmeshdebug.material = matdebug;
+      }
+      console.log("NavMesh rebuilt successfully!");
+    } catch (error) {
+      console.error("Failed to build NavMesh:", error);
+    }
+  }
+
+  rebuildNavMesh();
+
+
+  let spawnPoint = new BABYLON.Vector3(0, 0, 0);
+  setTimeout(() => {
+    const firstZeroSpawnPoint = new BABYLON.Vector3(0, -10000, 0);
+    addNPC("guard", firstZeroSpawnPoint);
+    setTimeout(() => {
+      const newSpawnPoint = new BABYLON.Vector3(spawnPoint.x, spawnPoint.y, spawnPoint.z);
+      newSpawnPoint.x -= 128;
+      newSpawnPoint.z -= 110;
+      newSpawnPoint.y += 49;
+      addNPC("guard", newSpawnPoint);
+      let newSpawnPoint2 = newSpawnPoint.clone().add(new BABYLON.Vector3(220, 30, -130));
+      addNPC("guard", newSpawnPoint2);
+      // let newSpawnPoint3 = newSpawnPoint.clone().add(new BABYLON.Vector3(-10, 0, -10));
+      // addNPC("slime", newSpawnPoint3);
+
+    }, 5000);
+  }, 10000);
+
+  setTimeout(() => {
+    addEnemyOutlineCamera(scene, PLAYER);
+    PLAYER.target = NPCPools.getInstance().NPCPools["guard"].npcPool[0].npcMesh;
+  }, 15000);
+
+  async function addNPC(npcType, spawnPoint) {
+    // const spawnPoint = new BABYLON.Vector3(1706.683, -805, 1277.427);
+    // npc.position.x += 40;
+    // npc.position.z -= 50;
+    //was nice position over by the water, this is a new one
+    // newSpawnPoint.rotation.y = BABYLON.Tools.ToRadians(60);
+
+    await NPCPools.getInstance().addNPC(npcType, spawnPoint);
+
+    //something to do with loading causes occasional shader glitches
+
+    // const spawnPoint2 = new BABYLON.Vector3(1606.683, -805, 1277.427);
+    // await NPCPools.getInstance().addNPC(npcName, spawnPoint2);
+  }
+  // setTimeout(() => {
+  //   addEnemyOutlineCamera(scene, PLAYER);
+  //   PLAYER.target = NPCPools.getInstance().NPCPools["guard"].npcPool[0].npcMesh;
+  // }, 8000);
+
+  let debug = false; //NAVEMESH_DEBUG use in panel
+  if (NAVEMESH_DEBUG) {
+    BABYLON.Tools.LoadScriptAsync("https://cdn.jsdelivr.net/npm/lil-gui@0.17.0/dist/lil-gui.umd.min.js").then(() => {
+      const gui = new lil.GUI({ title: "Nav Mesh Settings" });
+
+      // Basic parameters folder
+      const basicFolder = gui.addFolder("Basic Parameters");
+      basicFolder.add(params, "cs", 0.1, 5).name("Cell Size");
+      basicFolder.add(params, "ch", 0.1, 5).name("Cell Height");
+      basicFolder.add(params, "walkableSlopeAngle", 0, 90).name("Slope Angle");
+      basicFolder.add(params, "walkableHeight", 0.1, 5).name("Agent Height");
+      basicFolder.add(params, "walkableClimb", 0.1, 5).name("Max Climb");
+      basicFolder.add(params, "walkableRadius", 0.1, 5).name("Agent Radius");
+
+      // Advanced parameters folder
+      const advancedFolder = gui.addFolder("Advanced Parameters");
+      advancedFolder.add(params, "maxEdgeLen", 1, 50).name("Max Edge Length");
+      advancedFolder.add(params, "maxSimplificationError", 0.1, 3).name("Simplification Error");
+      advancedFolder.add(params, "minRegionArea", 1, 100).name("Min Region Area");
+      advancedFolder.add(params, "mergeRegionArea", 1, 100).name("Merge Region Area");
+      advancedFolder.add(params, "maxVertsPerPoly", 3, 12, 1).name("Max Verts Per Poly");
+      advancedFolder.add(params, "detailSampleDist", 1, 20).name("Sample Distance");
+      advancedFolder.add(params, "detailSampleMaxError", 0.1, 5).name("Sample Max Error");
+
+      // Add rebuild button
+      gui.add(params, "rebuild").name("Rebuild NavMesh");
+
+      // Add preset buttons
+      const presetFolder = gui.addFolder("Presets");
+
+      // Default preset
+      presetFolder
+        .add(
+          {
+            setDefault: () => {
+              Object.assign(params, {
+                cs: 0.2,
+                ch: 0.2,
+                walkableSlopeAngle: 90,
+                walkableHeight: 1.0,
+                walkableClimb: 1,
+                walkableRadius: 1,
+                maxEdgeLen: 12,
+                maxSimplificationError: 1.3,
+                minRegionArea: 8,
+                mergeRegionArea: 20,
+                maxVertsPerPoly: 6,
+                detailSampleDist: 6,
+                detailSampleMaxError: 1,
+              });
+              gui.refresh();
+              rebuildNavMesh();
+            },
+          },
+          "setDefault"
+        )
+        .name("Default Settings");
+    });
+  }
 }
 
 async function setupSound(scene) {
@@ -211,7 +436,7 @@ async function setupSound(scene) {
     scene.activeCamera.sound.music = sound;
 
     setInterval(async function () {
-      sound.play();
+      crowd.agentGoto(id, p);
     }, 400000); // 100 seconds in milliseconds
   }, 15000);
 }
@@ -240,6 +465,7 @@ function setupClass() {
   setupSkillBar();
   setupSpellbook();
   setupSkillTree();
+  MODE = 1;
 }
 
 import { SkillBar } from "/src/combat/skills/SkillBar.js";
