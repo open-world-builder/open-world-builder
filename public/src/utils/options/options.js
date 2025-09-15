@@ -4,6 +4,7 @@ export class Options {
     this.panel = this.createPanel();
     this.isTerrainEditor = terrainEditor;
     if (!this.isTerrainEditor) {
+      //todo replace with terrain editor/global menu
       this.menuBar = this.createMenuBar();
     }
     this.bindEvents();
@@ -134,9 +135,9 @@ export class Options {
     `;
 
     const buttons = [
-      { text: "Skill Maker", id: "menu-skill-editor" },
-      { text: "Talent Tree Maker", id: "menu-skill-tree-maker" },
-      { text: "Map", id: "menu-map" },
+      // { text: "Skill Maker", id: "menu-skill-editor" },
+      // { text: "Talent Tree Maker", id: "menu-skill-tree-maker" },
+      // { text: "Map", id: "menu-map" },
       //   { text: "Wiki", id: "menu-wiki" },
       { text: "Options", id: "menu-options" },
       //   { text: "Help", id: "menu-help" },
@@ -267,12 +268,12 @@ export class Options {
     // });
     if (!this.isTerrainEditor) {
       // Add other button handlers as needed
-      ["map", "skill-editor", "skill-tree-maker"].forEach((item) => {
-        const button = document.querySelector(`#menu-${item}`);
-        button.addEventListener("click", () => {
-          this.triggerCallback(item, true);
-        });
-      });
+      // ["map", "skill-editor", "skill-tree-maker"].forEach((item) => {
+      //   const button = document.querySelector(`#menu-${item}`);
+      //   button.addEventListener("click", () => {
+      //     this.triggerCallback(item, true);
+      //   });
+      // });
     }
   }
 
