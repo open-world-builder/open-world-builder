@@ -674,7 +674,7 @@ export class SkillBar {
                 -webkit-mask-image: conic-gradient(from -90deg, transparent 0 var(--deg, 0deg), #000 var(--deg, 0deg) 360deg);
 
                 mask-image: conic-gradient(from -90deg, transparent 0 var(--deg, 0deg), #000 var(--deg, 0deg) 360deg);
-
+                z-index: 2; /* sits above icon and keybind */
                 
             }
 
@@ -724,6 +724,174 @@ export class SkillBar {
  inset: 0;
  box-shadow: 0 0 0 3px #ffae33 inset, 0 0 10px #ffae33;
  }
+
+ /* --- Ready FX (polished light) --- */
+.skill-slot {
+  overflow: hidden; /* keep sheen/ring contained */
+  will-change: transform, filter;
+}
+
+/* quick glow/scale pop */
+.skill-slot.ready {
+  animation: sb-ready-pop 420ms cubic-bezier(.2,.9,.2,1) both;
+  /* bump the highlight slightly above normal hover */
+  filter: brightness(1.15);
+}
+
+/* expanding ring ripple */
+.skill-slot.ready::after {
+  content: "";
+  position: absolute;
+  inset: -11px;                 /* grow slightly outside for a nice halo */
+  border-radius: inherit;
+  pointer-events: none;
+  background: conic-gradient(#ffffff40, #ffffff40); /* solid white disc */
+  opacity: 0;
+  transform: scale(.8);
+  /* Cut the center so it looks like a ring */
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
+          mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
+  animation: sb-ready-ring 520ms ease-out forwards;
+  filter: drop-shadow(0 0 6px rgba(255,255,255,.55)) drop-shadow(0 0 14px rgba(255,255,255,.35));
+  z-index: 3;
+}
+
+/* diagonal sheen sweep element (added/removed by JS) */
+.skill-slot .ready-sheen {
+  position: absolute;
+  inset: -30% -60%;
+  border-radius: inherit;
+  pointer-events: none;
+  transform: translateX(-120%) rotate(25deg);
+  background: linear-gradient( to right,
+    rgba(255,255,255,0) 0%,
+    rgba(255,255,255,.85) 45%,
+    rgba(255,255,255,0) 70% );
+  mix-blend-mode: screen;
+  filter: blur(1px);
+  animation: sb-ready-sheen 520ms ease-out forwards;
+  z-index: 2;
+}
+
+/* nicer if the key was queued while cooling down */
+.skill-slot.queued.ready {
+  animation-duration: 520ms;
+}
+.skill-slot.queued.ready::after {
+  animation-duration: 640ms;
+}
+
+/* Keyframes */
+@keyframes sb-ready-pop {
+  0%   { transform: scale(.96); filter: brightness(1.25); }
+  60%  { transform: scale(1.08); filter: brightness(1.9); }
+  100% { transform: scale(1.0);  filter: brightness(1.0); }
+}
+@keyframes sb-ready-ring {
+  0%   { transform: scale(.80); opacity: 0; }/* --- Ready FX (polished light) --- */
+.skill-slot {
+  overflow: hidden; /* keep sheen/ring contained */
+  will-change: transform, filter;
+}
+
+/* quick glow/scale pop */
+.skill-slot.ready {
+  animation: sb-ready-pop 420ms cubic-bezier(.2,.9,.2,1) both;
+  /* bump the highlight slightly above normal hover */
+  filter: brightness(1.15);
+}
+
+/* expanding ring ripple */
+.skill-slot.ready::after {
+  content: "";
+  position: absolute;
+  inset: -6px;                 /* grow slightly outside for a nice halo */
+  border-radius: inherit;
+  pointer-events: none;
+  background: conic-gradient(#ffffff, #ffffff); /* solid white disc */
+  opacity: 0;
+  transform: scale(.8);
+  /* Cut the center so it looks like a ring */
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
+          mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
+  animation: sb-ready-ring 520ms ease-out forwards;
+  filter: drop-shadow(0 0 6px rgba(255,255,255,.55)) drop-shadow(0 0 14px rgba(255,255,255,.35));
+  z-index: 3;
+}
+
+/* diagonal sheen sweep element (added/removed by JS) */
+.skill-slot .ready-sheen {
+  position: absolute;
+  inset: -30% -60%;
+  border-radius: inherit;
+  pointer-events: none;
+  transform: translateX(-120%) rotate(25deg);
+  background: linear-gradient( to right,
+    rgba(255,255,255,0) 0%,
+    rgba(255,255,255,.85) 45%,
+    rgba(255,255,255,0) 70% );
+  mix-blend-mode: screen;
+  filter: blur(1px);
+  animation: sb-ready-sheen 520ms ease-out forwards;
+  z-index: 2;
+}
+
+/* nicer if the key was queued while cooling down */
+.skill-slot.queued.ready {
+  animation-duration: 520ms;
+}
+.skill-slot.queued.ready::after {
+  animation-duration: 640ms;
+}
+
+/* Keyframes */
+@keyframes sb-ready-pop {
+  0%   { transform: scale(.96); filter: brightness(1.25); }
+  60%  { transform: scale(1.08); filter: brightness(1.9); }
+  100% { transform: scale(1.0);  filter: brightness(1.0); }
+}
+@keyframes sb-ready-ring {
+  0%   { transform: scale(.80); opacity: 0; }
+  25%  { opacity: .95; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+@keyframes sb-ready-sheen {
+  0%   { transform: translateX(-120%) rotate(25deg); opacity: .0; }
+  10%  { opacity: .9; }
+  100% { transform: translateX(120%)  rotate(25deg); opacity: 0; }
+}
+
+/* be respectful of reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .skill-slot.ready,
+  .skill-slot.ready::after,
+  .skill-slot .ready-sheen {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+  25%  { opacity: .95; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+@keyframes sb-ready-sheen {
+  0%   { transform: translateX(-120%) rotate(25deg); opacity: .0; }
+  10%  { opacity: .9; }
+  100% { transform: translateX(120%)  rotate(25deg); opacity: 0; }
+}
+
+/* be respectful of reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .skill-slot.ready,
+  .skill-slot.ready::after,
+  .skill-slot .ready-sheen {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+.combo-skill { opacity: 0; transform: scale(1); transition: opacity .25s ease, transform .25s ease; }
+.combo-skill.active { opacity: 1; transform: scale(1); }
+.combo-skill.is-consumed { opacity: 0; transform: scale(.9); }
+
     `;
     document.head.appendChild(style);
 
@@ -758,6 +926,9 @@ export class SkillBar {
     const slotNumber = this.findSlotBySkillId(skillId);
     const comboElement = document.createElement("div");
     comboElement.className = "combo-skill";
+    comboElement.dataset.skillId = skillId;          // ← add
+    if (slotNumber) comboElement.dataset.slot = slotNumber; // ← add
+
     // comboElement.innerHTML = `<img src="${skill.icon}" alt="${skill.name}">`;
     comboElement.innerHTML = `
     <img src="${skill.icon}" alt="${skill.name}">
@@ -779,16 +950,22 @@ export class SkillBar {
       window.TERRAIN_EDITOR.canvas.focus();
 
       // Remove the combo element after animation
-      comboElement.classList.remove("active");
-      setTimeout(() => comboElement.remove(), 300);
+      // comboElement.classList.remove("active");
+      this.fadeOutAndRemoveCombo(comboElement);
+      // setTimeout(() => comboElement.remove(), 300);
     };
 
     this.comboContainer.appendChild(comboElement);
     requestAnimationFrame(() => comboElement.classList.add("active"));
 
+    // setTimeout(() => {
+    //   comboElement.classList.remove("active");
+    //   setTimeout(() => comboElement.remove(), 300);
+    // }, duration);
+
     setTimeout(() => {
-      comboElement.classList.remove("active");
-      setTimeout(() => comboElement.remove(), 300);
+      if (!comboElement.isConnected) return; // already consumed
+      this.fadeOutAndRemoveCombo(comboElement);
     }, duration);
   }
 
@@ -902,9 +1079,9 @@ export class SkillBar {
     // Cast the skill
     skillSlot.lastCast = Date.now();
     //  timeout for highlight, then cooldown shows
-    setTimeout(() => {
-      this.updateCooldown(slot);
-    }, 300);
+    // setTimeout(() => {
+    this.updateCooldown(slot);
+    // }, 300);
 
     // check for combos ui after casting
     this.checkCombos(slot);
@@ -935,6 +1112,8 @@ export class SkillBar {
 
       skillSlot.lastCast = Date.now();
       this.lastGcd = Date.now(); // Global cooldown starts now
+
+      this.consumeComboForSkillId(skill.id);
 
       // Apply GCD visual to all skills
       for (let i = 1; i <= 9; i++) {
@@ -998,6 +1177,7 @@ export class SkillBar {
     const skillSlot = this.slots.get(slot);
     const element = document.querySelector(`.skill-slot[data-slot="${slot}"] .cooldown`);
 
+
     let skillCooldownDisplay = "circle";
 
     //
@@ -1020,10 +1200,11 @@ export class SkillBar {
       requestAnimationFrame(updateProgress);
     } else if (skillCooldownDisplay === "circle") {
       const skillElement = document.querySelector(`.skill-slot[data-slot="${slot}"]`);
-      console.log("skillElement", skillElement);
+      // console.log("skillElement", skillElement);
 
       skillElement.classList.add("cool");
       skillElement.style.setProperty("--ring-darkness", "0.7");
+      skillElement.style.setProperty("--deg", "0deg");
       const updateProgress = () => {
         const now = Date.now();
         const elapsed = now - skillSlot.lastCast;
@@ -1034,6 +1215,7 @@ export class SkillBar {
           skillElement.classList.remove("cool");
           skillElement.style.removeProperty("--deg");
           skillElement.style.removeProperty("--ring-darkness");
+          this.playSkillReadyFX(slot);
           this.tryAutocast(); // Add this line
           return;
         }
@@ -1088,6 +1270,21 @@ export class SkillBar {
     };
     requestAnimationFrame(animate);
   }
+
+  fadeOutAndRemoveCombo(el) {
+    if (!el) return;
+    el.classList.add("is-consumed");   // optional nicer scale fade (see CSS below)
+    el.classList.remove("active");     // opacity → 0 via your existing transition
+    el.style.pointerEvents = "none";
+    el.addEventListener("transitionend", () => el.remove(), { once: true });
+  }
+
+  consumeComboForSkillId(skillId) {
+    document
+      .querySelectorAll(`.combo-skill[data-skill-id="${skillId}"]`)
+      .forEach(el => this.fadeOutAndRemoveCombo(el));
+  }
+
   // Optional: Add a method to start the autocast tick loop
   //todo set to calling only one when queued every global cool down
   startAutocastLoop() {
@@ -1108,6 +1305,39 @@ export class SkillBar {
     document.querySelector(`.skill-slot[data-slot="${this.queuedSkill}"]`)?.classList.remove("queued");
     this.queuedSkill = null;
   }
+
+  playSkillReadyFX(slot) {
+    const el = document.querySelector(`.skill-slot[data-slot="${slot}"]`);
+    if (!el) return;
+
+    // Add the “ready” class (glow pop + ring)
+    el.classList.add("ready");
+
+    // Add a temporary sheen sweep
+    const sheen = document.createElement("div");
+    sheen.className = "ready-sheen";
+    el.appendChild(sheen);
+
+    // Clean up after animations complete
+    const onEnd = (evt) => {
+      // remove after the pop completes (or sheen finishes), whichever fires latest
+      if (evt.animationName === "sb-ready-pop" || evt.target === sheen) {
+        // give the ring a moment to finish if pop ended first
+        setTimeout(() => {
+          el.classList.remove("ready");
+          sheen.remove();
+        }, 40);
+        el.removeEventListener("animationend", onEnd, true);
+      }
+    };
+    el.addEventListener("animationend", onEnd, true);
+
+    // (Optional) tiny sound cue
+    // try {
+    // window.SCENE_MANAGER?.activeScene?.activeCamera?.sound?.play("Quickness", "sfx");
+    // } catch (_) {}
+  }
+
 
   setupDragAndDrop() {
     const slots = document.querySelectorAll(".skill-slot");
