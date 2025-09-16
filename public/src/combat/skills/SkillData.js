@@ -45,7 +45,7 @@ export const SKILLS = {
     castTime: 1.15,
     castSound: "Fireplace",
     castSoundEnd: "Explosion",
-    cooldown: 1150,
+    cooldown: 2950,
     range: 200,
     cost: [{ type: "mana", value: 25 }],
     effects: [new Effect("damage", 20, { delay: 1.4, sound: "Subduct Up", soundDelay: 1.38, hitVFX: "explosionMinimalDebris", screenShakeIntensity: 0.5, screenShakeDuration: 400 }), new Effect("burn", 5, { delay: 1.4, sound: "Fireplace", hitTime: 0.5, duration: 3, hitVFX: "explosionMinimal" })],
