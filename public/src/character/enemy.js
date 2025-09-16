@@ -4,15 +4,41 @@ import { Health } from "./health.js";
 export function setupEnemies(scene, player, terrain, amount, mesh, hpbar) {
   let enemies = [];
 
+
+  let recastPathing = true;
+  let localCrowd;
+  if (recastPathing) {
+    function setupPathing() {
+      localCrowd = NAVIGATION_PLUGIN.createCrowd(32, 0.6, window.SCENE_MANAGER.activeScene);
+
+      // Update simulation once for all NPCs
+      window.SCENE_MANAGER.activeScene.onBeforeRenderObservable.add(() => {
+        const dt = window.SCENE_MANAGER.activeScene.getEngine().getDeltaTime() * 0.001;
+        if (localCrowd) {
+          // console.log("t");
+          localCrowd.update(dt);
+        }
+      });
+
+    }
+
+    setupPathing();
+  }
+
   let enemyAttackDistance = 12;
   for (let i = 0; i < amount; i++) {
     let enemy = createEnemy(scene, mesh, hpbar);
+
+    if (recastPathing) addEnemyToCrowd(enemy);
+    else {
+      addRandomMovement(enemy, scene, terrain);
+      attackIfClose(scene, enemy, player, enemyAttackDistance);
+      // setTimeout(() => {
+      //     attachHealthBar(enemy);
+      // }, 1000);
+    }
     enemies.push(enemy);
-    addRandomMovement(enemy, scene, terrain);
-    attackIfClose(scene, enemy, player, enemyAttackDistance);
-    // setTimeout(() => {
-    //     attachHealthBar(enemy);
-    // }, 1000);
+
   }
 
   // addEnemyOutline(scene, player);
@@ -20,6 +46,61 @@ export function setupEnemies(scene, player, terrain, amount, mesh, hpbar) {
   // setTimeout(() => {
   //     attachHealthBar(enemies[0]);
   // }, 1000);
+
+  function addEnemyToCrowd(enemy) {
+    const npc = new BABYLON.TransformNode("npcNode");
+    let npcMesh = enemy;
+    npcMesh.parent = npc;
+    npc.npcMesh = npcMesh;
+
+    let targetPosition = enemy.position.clone();
+
+
+
+    let randomX = Math.random() * 100 - 50;
+    let randomZ = Math.random() * 100 - 50;
+
+    // Calculate new target position
+    targetPosition = enemy.position.add(new BABYLON.Vector3(150, 71, -300));
+    let spawnPoint = targetPosition;
+
+    npc.position = spawnPoint.clone();
+
+    npc.npcMesh.isPickable = false;
+    // npc.npcMesh.isInteractable = true;
+    // npc.npcMesh.interact = new Interact();
+    // npc.npcMesh.interact.setDefaultAction("talk");
+
+    let health = new Health("EnemySimple", 100, npc);
+    // BABYLON.Tags.EnableFor(npc);
+    // npc.addTags("health");
+    BABYLON.Tags.AddTagsTo(npcMesh, "health");
+    // let testNpc = new NPC("id1", configId, window.SCENE_MANAGER.activeScene, health);
+    // npc.NPC = testNpc;
+    // npc.NPC.home = npc.position;
+    // npc.NPC._transform = npc; //Todo refactor into one NPC class, NPC should be NPC info isntead
+    npc.npcMesh.health = health;
+    npc.npcMesh.health.rangeCheck = npc.npcMesh;
+
+    const agentOpts = { radius: 0.6, height: 1.8, maxSpeed: 20, acceleration: 10 };
+    const id = localCrowd.addAgent(npc.position, agentOpts, npc);
+
+
+    setInterval(async function () {
+
+      let newMovement = npc.position.clone();
+      let randomX = Math.random() * 100 - 50;
+      let randomZ = Math.random() * 100 - 50;
+
+      newMovement.add(new BABYLON.Vector3(randomX * 0.1, 0, randomZ * 0.1));
+      console.log("new Movement" + id + " " + newMovement);
+      console.log("Local crowd" + localCrowd);
+      localCrowd.agentGoto(id, newMovement);
+    }, 2000); // 100 seconds in milliseconds
+  }
+
+
+
   return enemies;
 }
 
@@ -53,11 +134,30 @@ export function createEnemyWithPosition(mesh, startingHealth, position, scene) {
     let enemyAggregate = new BABYLON.PhysicsAggregate(enemy, BABYLON.PhysicsShapeType.CONVEX_HULL, { mass: 0, restitution: 0.0, friction: 0.5 }, scene);
     enemy.enemyAggregate = enemyAggregate;
 
+    // enemy.break = (amount) => {
+    //   // console.log("enemy.enemyAggregate: " + enemy.enemyAggregate);
+    //   // enemy.enemyAggregate.dispose();
+    //   enemy.dispose();
+    //   mesh.breakBarrel(mesh, mesh.fracturedPrefabRoot, scene, position, amount);
+    // };
     enemy.break = (amount) => {
-      enemy.enemyAggregate.dispose();
-      enemy.dispose();
+      // 1) remove THIS barrel's collision
+      if (enemy.enemyAggregate) {
+        enemy.enemyAggregate.dispose();
+        enemy.enemyAggregate = null;
+      }
+
+      // 2) cache transform of the one that was hit
+      const pos = enemy.getAbsolutePosition().clone();
+
+      // 3) spawn fracture using THIS instance's transform
+      // enemy.breakBarrel(enemy, enemy.fracturedPrefabRoot, scene, pos, amount);
       mesh.breakBarrel(mesh, mesh.fracturedPrefabRoot, scene, position, amount);
+
+      // 4) remove the intact visual
+      enemy.dispose();
     };
+
   }
   // let enemy = BABYLON.MeshBuilder.CreateSphereq("enemy", {segments: 3, diameter: 14}, scene);
   // enemy.position = new BABYLON.Vector3(Math.random() * 100 - 50, 1, Math.random() * 100 - 50);

@@ -23,7 +23,7 @@ import { SoundManager } from "/src/utils/sound.js";
 
 import { showLevelTitle } from '/src/utils/leveltext.js';
 
-import { addEnemyOutlineCamera } from "../../character/enemy.js";
+import { createEnemyWithPosition, addEnemyOutlineCamera } from "/src/character/enemy.js";
 
 import { NPCPools } from "../../utils/npc/NPCPools.js";
 
@@ -104,9 +104,8 @@ export async function createTraining(engine) {
   });
 
 
-  VFX["fireBall"] = addFireball(scene, engine);
-
-  VFX["fireBallNew"] = createFireballVFX(scene);
+  // VFX["fireBall"] = addFireball(scene, engine);
+  // VFX["fireBallNew"] = createFireballVFX(scene);
 
   addLightrays(models["lightrays"], scene, engine);
 
@@ -167,6 +166,8 @@ export async function createTraining(engine) {
     // showLevelTitle('CHAPTER III — THE BLACKENED GROVE', { subtitle: 'Whispers in the Fog' });
     showLevelTitle('Training Grounds');
 
+
+
     setTimeout(() => {
       let groundObjects = models["CharacterSelectArea"].getChildMeshes();
       setupNavmesh(groundObjects, scene);
@@ -179,8 +180,11 @@ export async function createTraining(engine) {
       //   setupEnemies(scene, character, groundObject, 7, slime1);
       // }, 9000);
 
+      setupBarrel(scene);
 
     }, 1000);
+
+
 
   }, 10);
 
@@ -193,6 +197,151 @@ export async function createTraining(engine) {
 
   await setupSound(scene);
   return scene;
+}
+
+
+// general break function, move to own file, maybe break.js. should include
+function breakBarrel(mesh, fracturedPrefab, scene, position, explosionForce = 10) {
+  // make explosion force change with hit damage
+
+  // 1.  Clean up intact barrel
+  // body.dispose();
+  console.log("breaking barrel");
+  // mesh.setEnabled(false); // keep it as prefab if you like
+  console.log(mesh);
+  console.log(mesh.name);
+  console.log(fracturedPrefab.name);
+  // mesh.dispose();
+
+  // 2. Create dynamic pieces at barrel's position
+  const fracturedRoot = fracturedPrefab.clone("fractured_barrel", null);
+  fracturedRoot.setEnabled(true);
+  fracturedRoot.scaling.x = mesh.scaling.x;
+  fracturedRoot.scaling.y = mesh.scaling.y;
+  fracturedRoot.scaling.z = mesh.scaling.z;
+  fracturedRoot.rotationQuaternion = mesh.rotationQuaternion?.clone() ?? BABYLON.Quaternion.Identity();
+
+  fracturedRoot.position.copyFrom(position);
+  fracturedRoot.isPickable = false;
+
+  console.log(fracturedRoot.getChildMeshes());
+  const pieces = fracturedRoot.getChildMeshes();
+  pieces.forEach((piece) => {
+    if (!piece.name.toLowerCase().includes("breakable")) {
+      piece.setEnabled(false);
+      piece.dispose();
+    } else {
+      piece.material.backFaceCulling = false;
+      // Create physics aggregate for each piece
+      const pieceAggregate = new BABYLON.PhysicsAggregate(piece, BABYLON.PhysicsShapeType.CONVEX_HULL, { mass: 1, restitution: 0.1, friction: 0.5 }, scene);
+      // pieceAggregate.body.setGravityFactor(20);
+      pieceAggregate.body.setGravityFactor(15);
+
+      // Position at barrel location
+      piece.position.copyFrom(mesh.position);
+      piece.setEnabled(true);
+
+      // Add random explosion force
+      const randomDir = new BABYLON.Vector3(
+        Math.random() * 2 - 1, // -1 to 1
+        Math.random() * 2, // 0 to 2 (upward bias)
+        Math.random() * 2 - 1 // -1 to 1
+      );
+      // const explosionForce = 10;
+      pieceAggregate.body.applyImpulse(randomDir.scale(explosionForce), piece.getAbsolutePosition());
+
+      setTimeout(() => {
+        pieceAggregate.dispose();
+        piece.dispose();
+      }, 60000);
+    }
+  });
+
+  // // 2.  Clone fractured prefab at the same place
+  // const root = fracturedPrefab.clone("fx", undefined);
+  // root.setEnabled(true);
+  // root.position.copyFrom(mesh.position);
+  // root.rotationQuaternion = mesh.rotationQuaternion?.clone() ?? BABYLON.Quaternion.Identity();
+
+  // // 3.  Give every child piece its own DYNAMIC body
+  // root.getChildMeshes().forEach((piece) => {
+  //   const pieceBody = new BABYLON.PhysicsBody(piece, BABYLON.PhysicsMotionType.DYNAMIC, scene);
+
+  //   // convex hull is usually fine for debris
+  //   pieceBody.shape = new BABYLON.PhysicsShapeConvexHull(pieceBody, hkPlugin);
+
+  //   pieceBody.setMassProperties({ mass: 0.2 }); // light wood chunk
+  //   pieceBody.setLinearDamping(0.3); // stops fairly quick
+  //   pieceBody.setAngularDamping(0.3);
+
+  //   //  Give it an outward impulse away from the sword
+  //   const dir = piece.getAbsolutePosition().subtract(swordCollider.getAbsolutePosition()).normalize();
+  //   pieceBody.applyImpulse(dir.scaleInPlace(3), BABYLON.Vector3.Zero());
+
+  //   // 4.  Auto‑downgrade to STATIC when velocity is almost zero
+  //   // scene.onBeforeRenderObservable.add(() => {
+  //   //   const v = pieceBody.getLinearVelocity().length();
+  //   //   if (v < 0.05) {
+  //   //     pieceBody.setMotionType(BABYLON.PhysicsMotionType.STATIC);
+  //   //   }
+  //   // });
+  // });
+
+  // (Optional) play particle burst / sound at mesh.position
+}
+
+async function setupBarrel(scene) {
+  const loadResult = await BABYLON.SceneLoader.ImportMeshAsync("", "/assets/env/objects/barrel/", "barrel_breakable.glb", scene);
+  const fracturedPrefabRoot = loadResult.meshes[0];
+
+  // const fracturedPrefabRoot = new BABYLON.TransformNode("fracturedPrefabRoot", scene);
+  // const preview = BABYLON.TransformNode("preview", scene);
+  // loadResult.meshes[0].parent = null;
+  // Fix the negative scaling before parenting
+  if (fracturedPrefabRoot.scaling.z < 0) {
+    // Flip the mesh back to positive scaling
+    fracturedPrefabRoot.scaling.z *= -1;
+    // Rotate 180 degrees around Y axis to maintain same visual orientation
+    fracturedPrefabRoot.rotate(BABYLON.Vector3.Up(), Math.PI);
+  }
+
+  // loadResult.meshes[0].parent = fracturedPrefabRoot;
+
+  // console.log(loadResult.meshes.map((mesh) => mesh.name));
+
+  // const barrel = BABYLON.MeshBuilder.CreateBox("barrel", { size: 5 }, scene);
+  const barrel = loadResult.meshes[0].getChildMeshes()[0];
+  let spawnPoint = new BABYLON.Vector3(10, 20, 0);
+  barrel.position = spawnPoint.clone();
+  barrel.scaling.y = 4.1;
+  barrel.scaling.x = 4.1;
+  barrel.scaling.z = 4.1;
+  barrel.isPickable = false;
+  barrel.isInteractable = true;
+  barrel.break = true;
+  barrel.breakBarrel = breakBarrel;
+  barrel.fracturedPrefabRoot = fracturedPrefabRoot;
+  barrel.setEnabled(false);
+
+  addEnemyOutlineCamera(scene, PLAYER);
+
+  let barrelEnemy = createEnemyWithPosition(barrel, 10, new BABYLON.Vector3(140, 32, -160), scene);
+  let barrelEnemy2 = createEnemyWithPosition(barrel, 10, new BABYLON.Vector3(130, 32, -150), scene);
+  let barrelEnemy3 = createEnemyWithPosition(barrel, 10, new BABYLON.Vector3(130, 32, -100), scene);
+  let barrelEnemy4 = createEnemyWithPosition(barrel, 10, new BABYLON.Vector3(210, 28, -100), scene);
+  PLAYER.target = barrelEnemy;
+
+  // setTimeout(() => {
+  //   breakBarrel(barrel, fracturedPrefabRoot, scene, 10);
+  // }, 1000);
+
+  // dummy.interact = new Interact();
+  // dummy.interact.addAction("talk", () => {
+  //   console.log("talk");
+  // });
+  // this.dummy.setEnabled(false);
+  //   PLAYER.target = barrel;
+  return barrel;
 }
 
 // Todo BABYLON.Debug.DebugLayer.RegisterPane(MyCustomPane);
@@ -307,7 +456,7 @@ async function setupNavmesh(meshes, scene) {
       // addNPC("slime", newSpawnPoint3);
 
     }, 5000);
-  }, 10000);
+  }, 3000);
 
   setTimeout(() => {
     addEnemyOutlineCamera(scene, PLAYER);
@@ -771,7 +920,7 @@ function setupPostProcessing(scene, camera) {
   // ssao.expensiveBlur = true; // Apply a better quality blur
   // ssao.bilateralSample = 16;
   ssao.bilateralSample = 4;
-  ssao.expensiveBlur = false; // Apply a better quality blur
+  ssao.expensiveBlur = true; // Apply a better quality blur
   ssao.samples = 16; // Number of samples used for occlusion calculation
   ssao.maxZ = 700; // Maximum distance to sample for occlusion
 
@@ -847,6 +996,7 @@ function setupPostProcessing(scene, camera) {
   }
   // LUT Texture Color Grading
   var postProcess = new BABYLON.ColorCorrectionPostProcess("color_correction", "./assets/textures/postprocess/cutoff-start-end.png", 1.0, camera);
+  postProcess.samples = 4;
   // var postProcess = new BABYLON.ColorCorrectionPostProcess("color_correction", "./assets/textures/postprocess/cutoff-start-end.png", 0.3, camera);
   // BABYLON.Tools.LoadScriptAsync("https://cdn.jsdelivr.net/npm/lil-gui@0.17.0/dist/lil-gui.umd.min.js").then(() => {
   //     const gui = new lil.GUI({ title: "Color Correction" });
