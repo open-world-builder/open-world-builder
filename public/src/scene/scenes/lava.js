@@ -87,6 +87,7 @@ export async function createLava(engine) {
     addCurrent(scene, dummyAggregate);
 
     setupSkillBar();
+    MODE = 1;
 
     // let dummy = setupTargetDummy(scene, spawnPoint);
     // let enemy = setupEnemySimple(scene, PLAYER, dummy, null);
