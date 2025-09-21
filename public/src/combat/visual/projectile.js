@@ -7,6 +7,7 @@ export class Projectile {
 
     launch(caster, target) {
         let fireorb = VFX['fireBall'];
+        fireorb.isPickable = false;
         const clonedFireorb = this.cloneProjectile(fireorb, caster);
         this.growObject(clonedFireorb, () => {
             this.moveToTarget(clonedFireorb, target.parent);
@@ -54,10 +55,11 @@ export class Projectile {
     }
 
     moveToTarget(object, target) {
-        const trail = new BABYLON.TrailMesh("trail", object, SCENE_MANAGER.activeScene, 0.5, 120, true);
-        trail.diameter = 0.5;
-        trail.material = SHADERS['fireTrailShader'];
-        trail.alphaIndex = 0;
+        // const trail = new BABYLON.TrailMesh("trail", object, SCENE_MANAGER.activeScene, 0.5, 120, true);
+        // trail.diameter = 0.5;
+        // trail.material = SHADERS['fireTrailShader'];
+        // trail.alphaIndex = 0;
+        // trail.isPickable = false;
 
         const initialPosition = object.position.clone();
         const finalPosition = target.position.clone();

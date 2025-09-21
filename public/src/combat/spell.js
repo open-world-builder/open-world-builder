@@ -29,7 +29,7 @@ export class Spell {
 
     console.log("target.name: " + target.name);
     if (target.name === "Hero") {
-      console.log("hi");
+      // console.log("hi");
       // target.position = target.rangeCheck.position.clone();
       return true;
       // console.log("target.rangeCheck.position: " + target.rangeCheck.position);
@@ -109,8 +109,10 @@ export class Spell {
 
   playVFX(caster, target) {
     // console.log(VFX[this.vfx()]);
+
     // const fireProjectile = new Projectile(5000, 1000, new BABYLON.Vector3(100, 0, 0));
     // fireProjectile.launch(caster, target);
+
     // this.vfx();
     // console.log(`Playing VFX: ${this.vfx}`);
     // VFX logic here
