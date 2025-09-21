@@ -1,6 +1,6 @@
 export async function loadHeroModel(scene, character) {
-  // const result = await BABYLON.SceneLoader.ImportMeshAsync(null, "/assets/characters/human_basemesh/", "HumanBaseMesh_WithEquips_WithWarlock_fast.glb", scene);
-  const result = await BABYLON.SceneLoader.ImportMeshAsync(null, "/assets/characters/human_basemesh/", "humanbasemesh_withequips_withwarlock_fast-opt.glb", scene);
+  const result = await BABYLON.SceneLoader.ImportMeshAsync(null, "/assets/characters/human_basemesh/", "HumanBaseMesh_WithEquips_WithWarlock_fast.glb", scene);
+  // const result = await BABYLON.SceneLoader.ImportMeshAsync(null, "/assets/characters/human_basemesh/", "glb fast face shapes hairstyle.glb", scene);
   // const result = await BABYLON.SceneLoader.ImportMeshAsync(null, "/assets/characters/human_basemesh/mixamo_rig/", "2test.glb", scene);
   // old HumanBaseMesh_WithEquips.glb does have strange stop return to idle side jerk animatiion
   // redo HumanBaseMesh_WithEquips_WithWarlock.glb // blender -> align in rest mode -> parent empty
@@ -8,6 +8,112 @@ export async function loadHeroModel(scene, character) {
   // 	result.meshes.forEach(mesh => {
   // 		if (mesh.material) mesh.material.dispose();
   // 	});
+  let shapeTargetModel = false;
+  if (shapeTargetModel) {
+
+
+    const mesh = result.meshes.find(m => m.morphTargetManager);
+    if (!mesh) return console.warn("No morph targets found.");
+
+    const mtm = mesh.morphTargetManager;
+    console.log("Shape keys", mtm);
+
+    function findMorphTargets(scene) {
+      const out = {};
+      scene.meshes.forEach(m => {
+        const mtm = m.morphTargetManager; if (!mtm) return;
+        for (let i = 0; i < mtm.numTargets; i++) {
+          const t = mtm.getTarget(i);
+          (out[t.name] ||= []).push(t);
+        }
+      });
+      return out;
+    }
+
+    function makeInfluenceAnim(target, keys, fps = 60, loop = false, easing = null) {
+      const a = new BABYLON.Animation("inf", "influence", fps,
+        BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+        loop ? BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE
+          : BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+      if (easing) a.setEasingFunction(easing);
+      a.setKeys(keys);
+      const g = new BABYLON.AnimationGroup("group");
+      g.addTargetedAnimation(a, target);
+      return g;
+    }
+    function makeEase() {
+      const e = new BABYLON.CubicEase();
+      e.setEasingMode(BABYLON.EasingFunction.EASINGMODE_EASEINOUT);
+      return e;
+    }
+
+
+    const byName = findMorphTargets(scene);
+    console.log("Morph keys:", Object.keys(byName)); // check names here
+
+    const BLINK_KEYS = ["Eyes - Closed"]; // will use whichever exist
+    const SPEAK_KEY = "Mouth - Open"; // e.g., "JawOpen" / "MouthOpen" / your phoneme key
+
+    const blinkTargets = BLINK_KEYS.flatMap(n => byName[n] || []);
+    const speakTarget = (byName[SPEAK_KEY] || [])[0];
+
+    if (!blinkTargets.length) console.warn("No blink morph targets found.");
+    if (!speakTarget) console.warn("No speakering morph target found.");
+
+    // --- BLINK (one-shot): 0 -> 1 -> 0 in ~120 ms
+    const blinkFPS = 60, blinkFrames = 45; // ~116 ms at 60fps
+    const blinkKeys = [
+      { frame: 0, value: 0 },
+      { frame: blinkFrames / 2, value: 1 },
+      { frame: blinkFrames, value: 0 }
+    ];
+    const blinkGroups = blinkTargets.map(t => makeInfluenceAnim(t, blinkKeys, blinkFPS, /*loop*/false, makeEase()));
+
+    function blinkOnce() {
+      console.log("toggle blink");
+      // play all blink anims together (one-shot)
+      blinkGroups.forEach(g => { g.reset(); g.play(false); });
+    }
+
+    // --- SPEAKERING (loop): 0 -> 1 -> 0, repeating
+    // ~4 “syllables” per second (adjust speedRatio for rate)
+    let speakGroup = null;
+    if (speakTarget) {
+      const speakFPS = 60, cycle = 30; // 15 frames => 4 cycles/sec
+      const speakKeys = [
+        { frame: 0, value: 0 },
+        { frame: cycle / 2, value: 0.7 },
+        { frame: cycle, value: 0 }
+      ];
+      speakGroup = makeInfluenceAnim(speakTarget, speakKeys, speakFPS, /*loop*/true, makeEase());
+      speakGroup.speedRatio = 1.0; // <— raise for faster chatter
+    }
+
+
+    let speaking = false;
+    function toggleSpeak() {
+      console.log("toggle speaking");
+      if (!speakGroup) return;
+      speaking = !speaking;
+      if (speaking) { speakGroup.play(true); } else { speakGroup.pause(); }
+    }
+
+    // --- controls: B to blink, S to toggle speakering
+    window.addEventListener("keydown", (e) => {
+      if (e.key.toLowerCase() === "b") blinkOnce();
+      if (e.key.toLowerCase() === "v") toggleSpeak();
+    });
+  }
+
+
+
+
+
+
+
+
+  // console.log("Shape keys:", [...Array(mtm.numTargets())].map((_, i) => mtm.getTarget(i).name)); // names in console
+
 
   let hero = result.meshes[0];
   // hero.parent = character;
