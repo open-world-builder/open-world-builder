@@ -80,7 +80,7 @@ export class SoundManager {
     }
     if (options.volume) {
       const defaultVolume = options.volume ? options.volume : this.channels[channel].volume;
-      console.log("defaultVolume", defaultVolume);
+      // console.log("defaultVolume", defaultVolume);
       sound.volume = defaultVolume;
       sound.defaultVolume = defaultVolume;
     }
