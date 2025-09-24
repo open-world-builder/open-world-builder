@@ -133,8 +133,9 @@ class SceneManager {
 
     const sceneParam = urlParams.get("scene");
     const defaultScene = this.sceneCreators[sceneParam] || this.sceneCreators.castle; // Default to outdoor if no valid scene parameter
-    this.setupScreenResolutionFromUrl(urlParams.get("res"));
-
+    // this.setupScreenResolutionFromUrl(urlParams.get("res"));
+    // console.log("res", urlParams.get("res"));
+    if (urlParams.get("res") !== null) this.setupScreenResolutionFromUrl(urlParams.get("res"));
 
     await this.loadScene(defaultScene);
     await this.switchToScene(0);
@@ -157,7 +158,6 @@ class SceneManager {
 
     this.setupSceneDataLoading(urlParams.get("sceneData"));
     if (urlParams.get("mode")) this.setupPlayModeFromUrl(urlParams.get("mode"));
-    if (urlParams.get("res")) this.setupScreenResolutionFromUrl(urlParams.get("res"));
 
     let timeout = 100;
     if (!FAST_RELOAD) timeout = 2500;
@@ -242,14 +242,15 @@ class SceneManager {
   setupPlayModeFromUrl(mode) {
     setTimeout(() => {
       // start in adventure mode if mode=play
+      // MODE = 1; // adventure mode
+      MODE = parseInt(mode);
     }, 1000);
   }
   setupScreenResolutionFromUrl(value) {
     setTimeout(() => {
-      console.log("res", parseInt(value));
+      // console.log("res", parseInt(value));
       this.engine.setHardwareScalingLevel(parseInt(value));
     }, 1000);
-
   }
 }
 
