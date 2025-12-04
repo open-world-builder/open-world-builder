@@ -73,12 +73,157 @@ export async function createInn(engine) {
   createMobileControlsJoystickOnly(scene, camera, character);
   character.shouldTapToMove = false;
 
+
+  setupAestheic(scene, camera, engine);
+
   setTimeout(async () => {
     setupSound(scene);
     showLevelTitle("Inn Demo", { fadeIn: 1400, hold: 1800, fadeOut: 1200 });
     addDust(scene, engine);
   }, 100);
   return scene;
+}
+
+function setupAestheic(scene, camera, engine) {
+  // Register the fragment shader code with Babylon
+  BABYLON.Effect.ShadersStore["ditherFragmentShader"] = `
+#ifdef GL_ES
+precision highp float;
+#endif
+
+varying vec2 vUV;
+
+uniform sampler2D textureSampler;
+uniform float pixelSize;
+uniform float paletteLevels;
+uniform vec2 screenSize;
+
+// 4x4 Bayer matrix (values in [0,1])
+float bayer(vec2 p) {
+    // integer 0–3 coordinates
+    vec2 m = mod(p, 4.0);
+    float x = m.x;
+    float y = m.y;
+
+    int ix = int(x);
+    int iy = int(y);
+    int index = ix + iy * 4;
+
+    float mat[16];
+    mat[ 0] = 0.0;  mat[ 1] = 8.0;  mat[ 2] = 2.0;  mat[ 3] = 10.0;
+    mat[ 4] = 12.0; mat[ 5] = 4.0;  mat[ 6] = 14.0; mat[ 7] = 6.0;
+    mat[ 8] = 3.0;  mat[ 9] = 11.0; mat[10] = 1.0;  mat[11] = 9.0;
+    mat[12] = 15.0; mat[13] = 7.0;  mat[14] = 13.0; mat[15] = 5.0;
+
+    return mat[index] / 16.0;
+}
+
+void main(void) {
+    vec2 uv = vUV;
+
+    // Pixelation in screen space
+    if (pixelSize > 1.0) {
+        vec2 pixelCoord = uv * screenSize / pixelSize;
+        pixelCoord = floor(pixelCoord);
+        uv = (pixelCoord * pixelSize) / screenSize;
+    }
+
+    vec4 color = texture2D(textureSampler, uv);
+    vec3 rgb = color.rgb;
+
+    // Ordered dithering threshold based on screen position
+    float threshold = bayer(floor(gl_FragCoord.xy));
+
+    float levels = max(paletteLevels, 2.0);
+
+    // Quantize per-channel with slight threshold offset
+    vec3 q = floor(rgb * levels + threshold) / (levels - 1.0);
+
+    gl_FragColor = vec4(q, color.a);
+}
+`;
+
+
+  // Parameters that we’ll control with lil-gui
+  const aestheticParams = {
+    pixelSize: 2,       // size of pixelation blocks
+    paletteLevels: 4,   // number of color steps
+    ratio: 1.0          // post-process resolution ratio
+  };
+
+  // Create the post-process
+  const ditherPostProcess = new BABYLON.PostProcess(
+    "ditherPostProcess",
+    "dither", // looks up ditherFragmentShader in Effect.ShadersStore
+    ["pixelSize", "paletteLevels", "screenSize"], // uniforms
+    null,    // samplers
+    aestheticParams.ratio,
+    camera
+  );
+
+  // Update uniforms each frame
+  ditherPostProcess.onApply = (effect) => {
+    const w = engine.getRenderWidth();
+    const h = engine.getRenderHeight();
+
+    effect.setFloat("pixelSize", aestheticParams.pixelSize);
+    effect.setFloat("paletteLevels", aestheticParams.paletteLevels);
+    effect.setVector2("screenSize", new BABYLON.Vector2(w, h));
+  };
+
+  // Update screenSize when engine resizes
+  engine.onResizeObservable.add(() => {
+    const w = engine.getRenderWidth();
+    const h = engine.getRenderHeight();
+    // Next frame onApply will pick it up via screenSize uniform
+  });
+
+  // Hook up lil-gui controls
+  setupAestheticGUI(aestheticParams, ditherPostProcess, camera);
+}
+
+async function setupAestheticGUI(params, ditherPostProcess, camera) {
+  // ensure lil-gui is loaded
+  await LoadLiLGUI();
+
+  // lil is exposed globally by the UMD build
+  const gui = new lil.GUI({ title: "Dither Aesthetic" });
+
+  gui.add(params, "pixelSize", 1, 16, 1).name("Pixel Size");
+  gui.add(params, "paletteLevels", 2, 16, 1).name("Palette Levels");
+
+  // Ratio control: adjust resolution of the post-process
+  gui.add(params, "ratio", 0.25, 1.0, 0.25).name("Resolution Ratio").onChange((value) => {
+    // Recreate the post-process with new ratio
+    const index = camera._postProcesses.indexOf(ditherPostProcess);
+    if (index !== -1) {
+      camera.detachPostProcess(ditherPostProcess);
+    }
+
+    const newPP = new BABYLON.PostProcess(
+      "ditherPostProcess",
+      "dither",
+      ["pixelSize", "paletteLevels", "screenSize"],
+      null,
+      value,
+      camera
+    );
+
+    newPP.onApply = ditherPostProcess.onApply;
+
+    // replace reference so future changes use the new one
+    ditherPostProcess = newPP;
+  });
+
+  // Optional: toggle on/off without destroying it
+  const toggle = { enabled: true };
+  gui.add(toggle, "enabled").name("Enable").onChange((value) => {
+    if (value) {
+      camera.attachPostProcess(ditherPostProcess);
+    } else {
+      camera.detachPostProcess(ditherPostProcess);
+    }
+  });
 }
 
 function addDust(scene, engine) {
